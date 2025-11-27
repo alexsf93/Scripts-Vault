@@ -88,18 +88,60 @@ if (-not $guests) {
 }
 else {
     $guestCount = @($guests).Count
-    Write-Host "Se han encontrado $guestCount invitados. Procesando eliminación..." -ForegroundColor Cyan
+    Write-Host "Se han encontrado $guestCount invitados." -ForegroundColor Cyan
+    
+    # Confirmación antes de borrar
+    Write-Warning "¡ATENCIÓN! Se van a eliminar $guestCount usuarios del equipo '$TeamName'."
+    $confirm = Read-Host "¿Está seguro de que desea continuar? (S/N)"
+    
+    if ($confirm -notmatch '^[sS]$') {
+        Write-Warning "Operación cancelada por el usuario."
+        Disconnect-MicrosoftTeams -Confirm:$false
+        exit
+    }
+
+    Write-Host "Procesando eliminación..." -ForegroundColor Cyan
+    $deletedLog = @()
 
     foreach ($guest in $guests) {
         if ($PSCmdlet.ShouldProcess("Usuario: $($guest.User)", "Eliminar del equipo '$TeamName'")) {
             try {
                 Remove-TeamUser -GroupId $team.GroupId -User $guest.User -ErrorAction Stop
                 Write-Host " [OK] Eliminado: $($guest.User)" -ForegroundColor Green
+                $deletedLog += $guest.User
             }
             catch {
                 Write-Warning " [ERROR] No se pudo eliminar $($guest.User): $_"
             }
         }
+    }
+
+    # Log final de usuarios eliminados
+    if ($deletedLog.Count -gt 0) {
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmm"
+        $sanitizedTeamName = $TeamName -replace '[\\/:*?"<>|]', ''
+        $logFile = "DeletedGuests_${sanitizedTeamName}_${timestamp}.log"
+        
+        # Determine path (script directory or current)
+        $logPath = if ($PSScriptRoot) { Join-Path $PSScriptRoot $logFile } else { Join-Path $PWD $logFile }
+
+        $logContent = @(
+            "==========================================",
+            "       LISTA DE USUARIOS ELIMINADOS       ",
+            "==========================================",
+            "Equipo: $TeamName",
+            "Fecha: $(Get-Date)",
+            "------------------------------------------"
+        )
+        $logContent += $deletedLog
+        $logContent += "------------------------------------------"
+        $logContent += "Total: $($deletedLog.Count) usuarios eliminados."
+        $logContent += "=========================================="
+
+        $logContent | Out-File -FilePath $logPath -Encoding utf8
+
+        Write-Host "`n[INFO] Se ha generado el fichero de log: $logPath" -ForegroundColor Green
+        Write-Host "Total eliminados: $($deletedLog.Count)" -ForegroundColor Green
     }
 }
 
