@@ -44,8 +44,21 @@ if (-not (Get-Module -ListAvailable -Name MicrosoftTeams)) {
 
 Import-Module MicrosoftTeams 6>$null
 
-# Conectar a Microsoft Teams (interactivo si no hay token)
-Connect-MicrosoftTeams 6>$null
+# Conectar a Microsoft Teams
+if ($env:ACC_CLOUD -or $env:AZURE_HTTP_USER_AGENT -match 'cloud-shell') {
+    Write-Host "Entorno Azure Cloud Shell detectado." -ForegroundColor Cyan
+    Write-Host "Iniciando autenticación por código de dispositivo..." -ForegroundColor Yellow
+    Connect-MicrosoftTeams -UseDeviceAuthentication
+}
+else {
+    try {
+        Connect-MicrosoftTeams -ErrorAction Stop
+    }
+    catch {
+        Write-Warning "No se pudo conectar interactivamente. Intentando Device Code..."
+        Connect-MicrosoftTeams -UseDeviceAuthentication
+    }
+}
 
 Write-Host "Buscando equipo '$TeamName' en Microsoft Teams..." -ForegroundColor Cyan
 
