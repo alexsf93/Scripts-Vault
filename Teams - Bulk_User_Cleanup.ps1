@@ -1,74 +1,63 @@
 <#
 ===========================================================
-        Microsoft Teams - Eliminación Masiva por Fecha
+        Microsoft Teams - Eliminación Masiva de Usuarios
 -----------------------------------------------------------
 Autor: Alejandro Suárez (@alexsf93)
 ===========================================================
 
 .DESCRIPCIÓN
-    Este script elimina usuarios (Invitados o Miembros) de un equipo.
-    Puede funcionar en dos modos:
-    1. FILTRO POR FECHA: Elimina usuarios creados en un rango específico.
-    2. MODO ALL: Elimina TODOS los usuarios del rol seleccionado (sin importar fecha).
+    Este script elimina usuarios de un equipo de Microsoft Teams basándose
+    en su rol (Invitados, Miembros, o Ambos).
     
     CARACTERÍSTICAS:
-    - Selección de rol objetivo: 'Guest', 'Member' o 'Both'.
+    - Selección OBLIGATORIA de rol objetivo: 'Guest', 'Member' o 'Both'.
+    - Filtro OPCIONAL por dominio (ej: externo.com) para eliminar usuarios de ese dominio.
+    - Detecta tanto formato estándar (*@dominio.com) como formato #EXT# de invitados convertidos.
     - PROTECCIÓN: Excluye automáticamente a los Propietarios (Owners).
+    - Confirmación antes de eliminar.
     - Genera un log detallado con los usuarios eliminados.
     - Soporte para Azure Cloud Shell y autenticación por Device Code.
 
 .REQUISITOS
     - Módulo MicrosoftTeams
-    - Módulo Microsoft.Graph.Users (solo si se usa filtro por fecha)
-    - Permisos de administrador/propietario.
+    - Permisos de administrador/propietario del equipo.
 
 .EJEMPLOS DE USO
-    # 1. Eliminar INVITADOS creados en una fecha específica:
-    .\Teams-Delete_Guest_By_Date.ps1 -TeamName "Proyecto X" -StartDate "2024-01-01"
+    # 1. Eliminar TODOS los INVITADOS:
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest
 
-    # 2. Eliminar TODOS los INVITADOS (sin importar fecha):
-    .\Teams-Delete_Guest_By_Date.ps1 -TeamName "Proyecto X" -All
+    # 2. Eliminar TODOS los MIEMBROS (excepto owners):
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Member
 
-    # 3. Eliminar TODOS los MIEMBROS (excepto owners):
-    .\Teams-Delete_Guest_By_Date.ps1 -TeamName "Proyecto X" -TargetRole Member -All
+    # 3. Eliminar TODOS (Invitados + Miembros, excepto owners):
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Both
+
+    # 4. Eliminar TODOS los INVITADOS de un dominio específico:
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest -Domain "externo.com"
+
+    # 5. Eliminar TODOS los MIEMBROS de un dominio específico:
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Member -Domain "contratista.org"
 ===========================================================
 #>
 
-[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High', DefaultParameterSetName = 'ByDate')]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
     [string]$TeamName,
 
-    [Parameter(Mandatory = $true, ParameterSetName = 'ByDate')]
-    [DateTime]$StartDate,
-
-    [Parameter(Mandatory = $false, ParameterSetName = 'ByDate')]
-    [DateTime]$EndDate,
-
-    [Parameter(Mandatory = $true, ParameterSetName = 'AllUsers')]
-    [switch]$All,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('Guest', 'Member', 'Both')]
+    [string]$TargetRole,
 
     [Parameter(Mandatory = $false)]
-    [ValidateSet('Guest', 'Member', 'Both')]
-    [string]$TargetRole = 'Guest'
+    [ValidatePattern('^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$')]
+    [string]$Domain
 )
 
-# Configuración de fechas (Solo si estamos en modo fecha)
-if ($PSCmdlet.ParameterSetName -eq 'ByDate') {
-    if (-not $PSBoundParameters.ContainsKey('EndDate')) {
-        $EndDate = $StartDate.Date.AddDays(1).AddTicks(-1)
-    }
-    else {
-        $EndDate = $EndDate.Date.AddDays(1).AddTicks(-1)
-    }
-    $StartDate = $StartDate.Date
-    Write-Host "Modo: Filtrado por Fecha ($StartDate - $EndDate)" -ForegroundColor Gray
+Write-Host "Rol objetivo: $TargetRole" -ForegroundColor Cyan
+if ($Domain) {
+    Write-Host "Filtro de dominio: *@$Domain (y formato #EXT#)" -ForegroundColor Cyan
 }
-else {
-    Write-Host "Modo: TODOS los usuarios (Sin filtro de fecha)" -ForegroundColor Magenta
-}
-
-Write-Host "Rol objetivo: $TargetRole" -ForegroundColor Gray
 
 # Forzar UTF-8
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
@@ -95,27 +84,7 @@ else {
 }
 
 # ---------------------------------------------------------
-# 2. Conexión a Microsoft Graph (Solo si es necesario para fechas)
-# ---------------------------------------------------------
-if ($PSCmdlet.ParameterSetName -eq 'ByDate') {
-    if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Users)) {
-        Write-Warning "El módulo 'Microsoft.Graph.Users' es necesario para verificar fechas. Instalando..."
-        Install-Module Microsoft.Graph.Users -Scope CurrentUser -Force
-    }
-    Import-Module Microsoft.Graph.Users 6>$null
-
-    Write-Host "Conectando a Microsoft Graph..." -ForegroundColor Cyan
-    try {
-        Connect-MgGraph -Scopes "User.Read.All" -NoWelcome
-    }
-    catch {
-        Write-Warning "Error conectando a Graph. Intentando DeviceCode..."
-        Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication -NoWelcome
-    }
-}
-
-# ---------------------------------------------------------
-# 3. Obtener Equipo y Miembros
+# 2. Obtener Equipo y Miembros
 # ---------------------------------------------------------
 Write-Host "Buscando equipo '$TeamName'..." -ForegroundColor Cyan
 try {
@@ -150,49 +119,41 @@ if (-not $usersToCheck) {
 }
 
 # ---------------------------------------------------------
-# 4. Filtrar (Por Fecha o Todos)
+# 3. Preparar lista de usuarios a eliminar
 # ---------------------------------------------------------
 $targets = @()
-$totalUsers = @($usersToCheck).Count
 
-if ($All) {
-    # Modo ALL: Agregamos todos directamente
-    Write-Host "Seleccionando TODOS los $totalUsers usuarios encontrados..." -ForegroundColor Magenta
-    foreach ($u in $usersToCheck) {
-        $targets += @{
-            User    = $u.User
-            Role    = $u.Role
-            Created = "N/A (Modo All)"
-        }
+# Aplicar filtro de dominio si se especificó
+if ($Domain) {
+    # Buscar tanto formato estándar (*@dominio.com) como formato #EXT# (*_dominio.com#EXT#@*)
+    $standardPattern = "*@$Domain"
+    $extPattern = "*_${Domain}#EXT#@*"
+    
+    Write-Host "Aplicando filtro de dominio: $standardPattern (y formato #EXT#)" -ForegroundColor Cyan
+    $usersToCheck = $usersToCheck | Where-Object { 
+        ($_.User -like $standardPattern) -or ($_.User -like $extPattern)
+    }
+    
+    if (-not $usersToCheck) {
+        Write-Host "No se encontraron usuarios del dominio '$Domain' con el rol '$TargetRole'." -ForegroundColor Yellow
+        Write-Host "Nota: Se buscó en formato estándar (*@$Domain) y formato externo (*_${Domain}#EXT#@*)" -ForegroundColor Gray
+        exit
     }
 }
-else {
-    # Modo FECHA: Verificamos en Graph
-    $current = 0
-    foreach ($u in $usersToCheck) {
-        $current++
-        Write-Progress -Activity "Verificando fechas de usuarios" -Status "$current / $totalUsers" -PercentComplete (($current / $totalUsers) * 100)
-        
-        try {
-            $userGraph = Get-MgUser -UserId $u.User -Property CreatedDateTime -ErrorAction Stop
-            
-            if ($userGraph.CreatedDateTime -ge $StartDate -and $userGraph.CreatedDateTime -le $EndDate) {
-                $targets += @{
-                    User    = $u.User
-                    Role    = $u.Role
-                    Created = $userGraph.CreatedDateTime
-                }
-            }
-        }
-        catch {
-            Write-Warning "No se pudo obtener info para $($u.User)"
-        }
+
+$totalUsers = @($usersToCheck).Count
+Write-Host "Seleccionando $totalUsers usuarios del rol '$TargetRole'..." -ForegroundColor Cyan
+
+foreach ($u in $usersToCheck) {
+    $targets += @{
+        User   = $u.User
+        UserId = $u.UserId
+        Role   = $u.Role
     }
-    Write-Progress -Activity "Verificando fechas de usuarios" -Completed
 }
 
 # ---------------------------------------------------------
-# 5. Confirmación y Borrado
+# 4. Confirmación y Borrado
 # ---------------------------------------------------------
 $count = $targets.Count
 
@@ -202,7 +163,7 @@ if ($count -eq 0) {
 }
 
 Write-Host "`nSe han encontrado $count usuarios para eliminar." -ForegroundColor Cyan
-$targets | ForEach-Object { Write-Host " - $($_.User) [$($_.Role)] (Creado: $($_.Created))" -ForegroundColor Gray }
+$targets | ForEach-Object { Write-Host " - $($_.User) [$($_.Role)]" -ForegroundColor Gray }
 
 Write-Warning "`n¡ATENCIÓN! Se eliminarán estos $count usuarios del equipo '$TeamName'."
 $confirm = Read-Host "¿Está seguro de que desea continuar? (S/N)"
@@ -216,7 +177,8 @@ $deletedLog = @()
 foreach ($target in $targets) {
     if ($PSCmdlet.ShouldProcess("Usuario: $($target.User)", "Eliminar del equipo")) {
         try {
-            Remove-TeamUser -GroupId $team.GroupId -User $target.User -ErrorAction Stop
+            # Usar UserId en lugar de User para evitar problemas con caracteres especiales (#EXT#)
+            Remove-TeamUser -GroupId $team.GroupId -User $target.UserId -ErrorAction Stop
             Write-Host " [OK] Eliminado: $($target.User)" -ForegroundColor Green
             $deletedLog += $target.User
         }
@@ -227,7 +189,7 @@ foreach ($target in $targets) {
 }
 
 # ---------------------------------------------------------
-# 6. Log Final
+# 5. Log Final
 # ---------------------------------------------------------
 if ($deletedLog.Count -gt 0) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmm"
@@ -241,7 +203,7 @@ if ($deletedLog.Count -gt 0) {
         "==========================================",
         "Equipo: $TeamName",
         "Rol Objetivo: $TargetRole",
-        "Modo: $(if($All){'TODO (Sin filtro fecha)'}else{"Fecha: $StartDate a $EndDate"})",
+        $(if ($Domain) { "Filtro Dominio: *@$Domain (y #EXT#)" }),
         "Fecha Ejecución: $(Get-Date)",
         "------------------------------------------"
     )
