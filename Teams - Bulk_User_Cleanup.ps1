@@ -37,6 +37,12 @@ Autor: Alejandro Suárez (@alexsf93)
 
     # 5. Eliminar TODOS los MIEMBROS de un dominio específico:
     .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Member -Domain "contratista.org"
+
+    # 6. Omitir confirmación (para automatización):
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest -Domain "externo.com" -Confirm:$false
+
+    # 7. Modo WhatIf (simular sin ejecutar):
+    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest -WhatIf
 ===========================================================
 #>
 
@@ -165,13 +171,7 @@ if ($count -eq 0) {
 Write-Host "`nSe han encontrado $count usuarios para eliminar." -ForegroundColor Cyan
 $targets | ForEach-Object { Write-Host " - $($_.User) [$($_.Role)]" -ForegroundColor Gray }
 
-Write-Warning "`n¡ATENCIÓN! Se eliminarán estos $count usuarios del equipo '$TeamName'."
-$confirm = Read-Host "¿Está seguro de que desea continuar? (S/N)"
-
-if ($confirm -notmatch '^[sS]$') {
-    Write-Warning "Cancelado."
-    exit
-}
+Write-Warning "`n¡ATENCIÓN! Se procederá a eliminar estos $count usuarios del equipo '$TeamName'."
 
 $deletedLog = @()
 foreach ($target in $targets) {
