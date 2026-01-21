@@ -1,44 +1,32 @@
 <#
-############################################################
-#                  PONG RETRO EN POWERSHELL                #
-#----------------------------------------------------------#
-# Autor: Alejandro Suárez (@alexsf93)                      #
-#                                                          #
-# Este script ejecuta el clásico juego Pong directamente   #
-# en la consola de Windows, con gráficos y controles retro #
-# y bordes visibles.                                      #
-#                                                          #
-#                      ¿CÓMO JUGAR?                        #
-#                                                          #
-# - Controla tu pala (izquierda) usando las teclas de      #
-#   cursor:                                                #
-#      Flecha ARRIBA   --> Subir la pala                   #
-#      Flecha ABAJO    --> Bajar la pala                   #
-#                                                          #
-# - MUY IMPORTANTE:                                        #
-#   Pulsa la tecla deseada UNA VEZ para mover la pala.     #
-#   NO mantengas la tecla pulsada. Cada pulsación mueve    #
-#   la pala UNA posición.                                  #
-#                                                          #
-# - Para salir del juego pulsa la tecla "q" en cualquier   #
-#   momento.                                               #
-#                                                          #
-# - El juego pausa tras cada gol y sigue al pulsar Enter.  #
-# - Juegas contra la CPU. La velocidad de la bola aumenta  #
-#   tras cada rebote en una pala y se reinicia tras un gol.#
-#                                                          #
-# ¡Que disfrutes la experiencia retro en tu PowerShell!    #
-############################################################
+.SYNOPSIS
+    Pong Retro en PowerShell.
+
+.DESCRIPTION
+    Este script ejecuta el clásico juego Pong directamente en la consola de Windows.
+    Permite jugar contra la CPU usando las flechas del teclado.
+
+.PARAMETER NoParameter
+    Este script no requiere parámetros.
+
+.EXAMPLE
+    .\Juego - Pong.ps1
+    Inicia el juego.
+
+.NOTES
+    Nombre:   Juego - Pong.ps1
+    Autor:    Alejandro Suárez (@alexsf93)
+    Versión:  1.0
 #>
 
 function Initialize-Game {
     $global:width = 40
     $global:height = 15
     $global:paddleSize = 4
-    $global:playerPos = [math]::Floor(($global:height - $global:paddleSize)/2)
-    $global:cpuPos = [math]::Floor(($global:height - $global:paddleSize)/2)
-    $global:ballX = [math]::Floor($global:width/2)
-    $global:ballY = [math]::Floor($global:height/2)
+    $global:playerPos = [math]::Floor(($global:height - $global:paddleSize) / 2)
+    $global:cpuPos = [math]::Floor(($global:height - $global:paddleSize) / 2)
+    $global:ballX = [math]::Floor($global:width / 2)
+    $global:ballY = [math]::Floor($global:height / 2)
     $global:ballDirX = -1
     $global:ballDirY = 1
     $global:scorePlayer = 0
@@ -58,7 +46,7 @@ function Show-Screen {
         $line = "|"
         for ($x = 0; $x -lt $global:width; $x++) {
             if (($x -eq 0 -and $y -ge $global:playerPos -and $y -lt ($global:playerPos + $global:paddleSize)) -or
-                ($x -eq ($global:width-1) -and $y -ge $global:cpuPos -and $y -lt ($global:cpuPos + $global:paddleSize))) {
+                ($x -eq ($global:width - 1) -and $y -ge $global:cpuPos -and $y -lt ($global:cpuPos + $global:paddleSize))) {
                 $line += "|"
             }
             elseif ($x -eq $global:ballX -and $y -eq $global:ballY) {
@@ -81,10 +69,10 @@ function Show-Screen {
 }
 
 function Reset-Ball {
-    $global:ballX = [math]::Floor($global:width/2)
-    $global:ballY = Get-Random -Minimum 2 -Maximum ($global:height-2)
-    $global:ballDirX = @(1,-1) | Get-Random
-    $global:ballDirY = @(1,-1) | Get-Random
+    $global:ballX = [math]::Floor($global:width / 2)
+    $global:ballY = Get-Random -Minimum 2 -Maximum ($global:height - 2)
+    $global:ballDirX = @(1, -1) | Get-Random
+    $global:ballDirY = @(1, -1) | Get-Random
     $global:delay = 120  # reinicia velocidad lenta cada vez que hay gol
 }
 
@@ -95,34 +83,35 @@ function Update-Ball {
     # Rebote superior e inferior (rebota en los bordes visibles)
     if ($global:ballY -lt 0) {
         $global:ballY = 0
-        $global:ballDirY = -$global:ballDirY
+        $global:ballDirY = - $global:ballDirY
     }
     elseif ($global:ballY -ge $global:height) {
         $global:ballY = $global:height - 1
-        $global:ballDirY = -$global:ballDirY
+        $global:ballDirY = - $global:ballDirY
     }
 
     # Rebote paleta derecha (CPU)
-    if ($global:ballX -eq ($global:width-2)) {
+    if ($global:ballX -eq ($global:width - 2)) {
         if ($global:ballY -ge $global:cpuPos -and $global:ballY -lt ($global:cpuPos + $global:paddleSize)) {
-            $global:ballDirX = -$global:ballDirX
+            $global:ballDirX = - $global:ballDirX
             if ($global:delay -gt $global:minDelay) { $global:delay -= $global:increaseSpeedStep }
         }
     }
     # Rebote paleta izquierda (Jugador)
     elseif ($global:ballX -eq 1) {
         if ($global:ballY -ge $global:playerPos -and $global:ballY -lt ($global:playerPos + $global:paddleSize)) {
-            $global:ballDirX = -$global:ballDirX
+            $global:ballDirX = - $global:ballDirX
             if ($global:delay -gt $global:minDelay) { $global:delay -= $global:increaseSpeedStep }
         }
     }
 }
 
 function Update-CPU {
-    $centerCPU = $global:cpuPos + [math]::Floor($global:paddleSize/2)
+    $centerCPU = $global:cpuPos + [math]::Floor($global:paddleSize / 2)
     if ($global:ballY -lt $centerCPU -and $global:cpuPos -gt 0) {
         $global:cpuPos--
-    } elseif ($global:ballY -gt $centerCPU -and $global:cpuPos -lt ($global:height-$global:paddleSize)) {
+    }
+    elseif ($global:ballY -gt $centerCPU -and $global:cpuPos -lt ($global:height - $global:paddleSize)) {
         $global:cpuPos++
     }
 }
@@ -143,9 +132,11 @@ while (-not $global:gameOver) {
     if ($key) {
         if ($key.Key -eq 'UpArrow' -and $global:playerPos -gt 0) {
             $global:playerPos--
-        } elseif ($key.Key -eq 'DownArrow' -and $global:playerPos -lt ($global:height-$global:paddleSize)) {
+        }
+        elseif ($key.Key -eq 'DownArrow' -and $global:playerPos -lt ($global:height - $global:paddleSize)) {
             $global:playerPos++
-        } elseif ($key.KeyChar -eq 'q') {
+        }
+        elseif ($key.KeyChar -eq 'q') {
             $global:gameOver = $true
             break
         }
@@ -171,7 +162,8 @@ while (-not $global:gameOver) {
         Write-Host ""
         if ($global:scorePlayer -gt $lastScorePlayer) {
             Write-Host "¡Gol para TI! Puntuación: Tú $global:scorePlayer - CPU: $global:scoreCPU" -ForegroundColor Yellow
-        } else {
+        }
+        else {
             Write-Host "¡Gol para la CPU! Puntuación: Tú $global:scorePlayer - CPU: $global:scoreCPU" -ForegroundColor Yellow
         }
         Write-Host "Pulsa Enter para continuar..." -ForegroundColor Green

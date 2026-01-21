@@ -1,16 +1,13 @@
-#########################################################################################
-#   Script de instalación automatizada de n8n + HTTPS
-#
-#   Este script instala Node.js, n8n y nginx, y configura un reverse proxy HTTPS
-#   con certificado autofirmado para exponer n8n de forma segura sin necesidad de dominio.
-#
-#   Requisitos:
-#     - Ubuntu 22.04/24.04 (probado en Azure)
-#     - Permisos de root/sudo
-#
-#   Autor: Alejandro Suárez (@alexsf93)
-#########################################################################################
 #!/bin/bash
+# ==============================================================================
+# Nombre:        Automatizaciones_Instalar_N8N.sh
+# Descripción:   Script de instalación automatizada de n8n + HTTPS.
+# Autor:         Alejandro Suárez (@alexsf93)
+# Versión:       1.0
+# Uso:           ./Automatizaciones_Instalar_N8N.sh
+# Notas:         Instala Node.js, n8n, nginx y configura un reverse proxy con SSL autofirmado.
+# ==============================================================================
+
 set -e
 
 N8N_PORT=5678

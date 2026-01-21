@@ -1,45 +1,12 @@
-#########################################################################################
-#   Instalador Headless de Nextcloud para Ubuntu 24.04 LTS
-#
-#   Este script automatiza la instalación de Nextcloud (última versión estable) sobre
-#   un stack LAMP en Ubuntu 24.04 LTS. Permite ejecución desatendida, integración en
-#   automatizaciones cloud y paso de credenciales por parámetros.
-#
-#   -----------------------------------------------------------------------------
-#
-#   Características:
-#   - Instalación 100% automatizada de Apache, PHP, MariaDB/MySQL y Nextcloud.
-#   - Creación automática de base de datos, usuario y configuración de Nextcloud.
-#   - Permite definir credenciales y dominio por argumentos.
-#   - Optimizado para laboratorios, despliegues cloud y pipelines CI/CD.
-#
-#   Requisitos:
-#   - Ubuntu Server 24.04 LTS limpio (sin Nextcloud previamente instalado).
-#   - Ejecutar como root o con sudo.
-#   - Acceso a Internet para descargar paquetes y Nextcloud.
-#
-#   Uso:
-#       bash Automatizaciones_Instalar_Nextcloud.sh [mysql_root_pass] [nc_db] [nc_db_user] [nc_db_pass] [site_url] [nc_admin] [nc_admin_pass]
-#     - [mysql_root_pass]  → Contraseña root de MySQL/MariaDB
-#     - [nc_db]            → Nombre de base de datos para Nextcloud
-#     - [nc_db_user]       → Usuario de base de datos para Nextcloud
-#     - [nc_db_pass]       → Contraseña de base de datos para Nextcloud
-#     - [site_url]         → URL pública del sitio (por ejemplo, http://IP)
-#     - [nc_admin]         → Usuario administrador Nextcloud
-#     - [nc_admin_pass]    → Contraseña administrador Nextcloud
-#
-#   Acceso tras instalación:
-#     - Web:      http://<IP-DE-TU-VM>/
-#     - Usuario admin Nextcloud:    <nc_admin>
-#     - Contraseña admin Nextcloud: <nc_admin_pass>
-#
-#   Advertencia:
-#     Cambia las contraseñas y parámetros por defecto si el entorno es accesible
-#     públicamente o es productivo.
-#
-#   Autor: Alejandro Suárez (@alexsf93)
-#########################################################################################
 #!/bin/bash
+# ==============================================================================
+# Nombre:        Automatizaciones_Instalar_Nextcloud.sh
+# Descripción:   Instalador Headless de Nextcloud para Ubuntu 24.04 LTS.
+# Autor:         Alejandro Suárez (@alexsf93)
+# Versión:       1.0
+# Uso:           ./Automatizaciones_Instalar_Nextcloud.sh [params...]
+# Notas:         Instala LAMP stack y Nextcloud. Configura base de datos automáticamante.
+# ==============================================================================
 
 set -euxo pipefail
 exec > >(tee /tmp/nextcloud_install_stdout.log)

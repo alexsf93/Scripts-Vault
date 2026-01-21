@@ -1,49 +1,32 @@
 <#
-===========================================================
-        Microsoft Teams - Eliminación Masiva de Usuarios
------------------------------------------------------------
-Autor: Alejandro Suárez (@alexsf93)
-===========================================================
+.SYNOPSIS
+    Microsoft Teams - Eliminación Masiva de Usuarios.
 
-.DESCRIPCIÓN
-    Este script elimina usuarios de un equipo de Microsoft Teams basándose
-    en su rol (Invitados, Miembros, o Ambos).
-    
-    CARACTERÍSTICAS:
-    - Selección OBLIGATORIA de rol objetivo: 'Guest', 'Member' o 'Both'.
-    - Filtro OPCIONAL por dominio (ej: externo.com) para eliminar usuarios de ese dominio.
-    - Detecta tanto formato estándar (*@dominio.com) como formato #EXT# de invitados convertidos.
-    - PROTECCIÓN: Excluye automáticamente a los Propietarios (Owners).
-    - Confirmación antes de eliminar.
-    - Genera un log detallado con los usuarios eliminados.
-    - Soporte para Azure Cloud Shell y autenticación por Device Code.
+.DESCRIPTION
+    Este script elimina usuarios de un equipo de Microsoft Teams basándose en su rol (Invitados, Miembros, o Ambos).
+    Soporta filtrado por dominio, exclusión automática de propietarios y generación de logs.
 
-.REQUISITOS
-    - Módulo MicrosoftTeams
-    - Permisos de administrador/propietario del equipo.
+.PARAMETER TeamName
+    Nombre del equipo de Teams.
 
-.EJEMPLOS DE USO
-    # 1. Eliminar TODOS los INVITADOS:
+.PARAMETER TargetRole
+    Rol a eliminar: 'Guest', 'Member', o 'Both'.
+
+.PARAMETER Domain
+    (Opcional) Dominio para filtrar usuarios (ej: externo.com).
+
+.EXAMPLE
     .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest
+    Elimina todos los invitados del equipo.
 
-    # 2. Eliminar TODOS los MIEMBROS (excepto owners):
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Member
-
-    # 3. Eliminar TODOS (Invitados + Miembros, excepto owners):
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Both
-
-    # 4. Eliminar TODOS los INVITADOS de un dominio específico:
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest -Domain "externo.com"
-
-    # 5. Eliminar TODOS los MIEMBROS de un dominio específico:
+.EXAMPLE
     .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Member -Domain "contratista.org"
+    Elimina miembros del dominio especificado.
 
-    # 6. Omitir confirmación (para automatización):
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest -Domain "externo.com" -Confirm:$false
-
-    # 7. Modo WhatIf (simular sin ejecutar):
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest -WhatIf
-===========================================================
+.NOTES
+    Nombre:   Teams - Bulk_User_Cleanup.ps1
+    Autor:    Alejandro Suárez (@alexsf93)
+    Versión:  1.0
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]

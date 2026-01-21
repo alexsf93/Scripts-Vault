@@ -1,45 +1,27 @@
 <#
-===========================================================
-        Exchange Online - Informe Detallado de Buzones
------------------------------------------------------------
-Autor: Alejandro Suárez (@alexsf93)
-===========================================================
+.SYNOPSIS
+    Exchange Online - Informe Detallado de Buzones
 
-.DESCRIPCIÓN
+.DESCRIPTION
     Este script se conecta a Exchange Online y obtiene información detallada de todos los buzones de usuario, excluyendo buzones de sistema.
     Permite buscar un buzón concreto con -User o mostrar todos los buzones.
     Presenta los datos en una tabla interactiva (Out-GridView) para buscar, ordenar y filtrar fácilmente.
 
-.DATOS MOSTRADOS
-    - Nombre y usuario principal (UPN)
-    - Tipo de buzón
-    - Alias secundarios (sin el principal)
-    - Capacidad consumida y total asignada
-    - Porcentaje de uso
-    - Elementos almacenados y eliminados
-    - Archivado habilitado
-    - Política de retención
-    - Litigation Hold
-    - Último inicio de sesión
+.PARAMETER User
+    Nombre del usuario (UPN) para filtrar un buzón específico. Si se omite, se muestran todos.
 
-.REQUISITOS
-    - PowerShell 7.x o Windows PowerShell 5.1
-    - Módulo ExchangeOnlineManagement instalado (el script lo instala si falta)
-    - Permisos para consultar buzones en Exchange Online
-
-.EJEMPLOS DE USO
-    # Mostrar todos los buzones en tabla interactiva:
+.EXAMPLE
     .\Exchange-Gathering.ps1
+    Muestra todos los buzones en una tabla interactiva.
 
-    # Mostrar sólo el buzón de un usuario concreto:
+.EXAMPLE
     .\Exchange-Gathering.ps1 -User usuario@dominio.com
+    Muestra sólo el buzón del usuario especificado.
 
-.NOTAS
-    - Excluye buzones de sistema, ajusta el filtro si lo necesitas.
-    - Compatible con Out-GridView (requiere entorno gráfico).
-    - Puedes copiar/exportar desde la tabla con Shift+clic o menú contextual.
-
-===========================================================
+.NOTES
+    Nombre:   Exchange - Gathering.ps1
+    Autor:    Alejandro Suárez (@alexsf93)
+    Versión:  1.0
 #>
 
 param(

@@ -1,40 +1,12 @@
-#########################################################################################
-#   Instalador Headless de Nagios Core para Ubuntu 24.04 LTS
-#
-#   Este script automatiza la instalación de Nagios Core (v4.5.9) y plugins oficiales
-#   en servidores Ubuntu 24.04 LTS. Permite definir usuario y contraseña admin vía
-#   parámetros, y deja el acceso web listo tras finalizar.
-#
-#   -----------------------------------------------------------------------------
-#
-#   Características:
-#   - Instalación totalmente desatendida de Nagios Core y plugins desde fuentes oficiales.
-#   - Configuración automática del usuario web y permisos.
-#   - Habilita Apache2, CGI y deja Nagios listo para acceder por navegador.
-#   - Ideal para laboratorios, despliegues cloud, automatización y testing.
-#
-#   Requisitos:
-#   - Ubuntu Server 24.04 LTS (limpio, sin Nagios instalado).
-#   - Ejecutar como root o usando sudo.
-#   - Acceso a Internet.
-#
-#   Uso:
-#       bash Automatizaciones_Instalar_Nagios.sh [usuario] [contraseña]
-#     - [usuario]     → Usuario admin web de Nagios (por defecto: nagiosadmin)
-#     - [contraseña]  → Contraseña admin (por defecto: Nagios123!)
-#
-#   Acceso tras instalación:
-#     - Web:      http://<IP-DE-TU-VM>/nagios
-#     - Usuario:  <usuario definido>
-#     - Password: <contraseña definida>
-#
-#   Advertencia:
-#     Por seguridad, cambia la contraseña por defecto tras la primera conexión
-#     si el entorno es accesible públicamente.
-#
-#   Autor: Alejandro Suárez (@alexsf93)
-#########################################################################################
 #!/bin/bash
+# ==============================================================================
+# Nombre:        Automatizaciones_Instalar_Nagios.sh
+# Descripción:   Instalador Headless de Nagios Core para Ubuntu 24.04 LTS.
+# Autor:         Alejandro Suárez (@alexsf93)
+# Versión:       1.0
+# Uso:           ./Automatizaciones_Instalar_Nagios.sh [usuario] [contraseña]
+# Notas:         Compila e instala Nagios Core y Plugins. Configura acceso web.
+# ==============================================================================
 
 set -euo pipefail
 

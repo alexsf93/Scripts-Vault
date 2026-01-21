@@ -1,41 +1,45 @@
 <#
-=====================================================================================================
-    REGISTRO DE DISPOSITIVO EN AUTOPILOT Y APAGADO CONDICIONAL
------------------------------------------------------------------------------------------------------
-Este script ejecuta el módulo `Get-WindowsAutopilotInfo` para registrar el dispositivo 
-en Microsoft Autopilot con los parámetros proporcionados (TenantID, AppId, AppSecret). 
-Si la ejecución es correcta, el equipo se apaga automáticamente; en caso de error, se muestra un 
-mensaje en rojo y no se apaga.
+.SYNOPSIS
+    Registro de dispositivo en Autopilot y apagado condicional.
 
------------------------------------------------------------------------------------------------------
-REQUISITOS
------------------------------------------------------------------------------------------------------
-- Ejecutar en PowerShell 5.1 o superior.
-- Requiere privilegios de administrador.
-- El script `Get-WindowsAutopilotInfo.ps1` debe estar en el mismo directorio o accesible por PATH.
-- Credenciales válidas de Azure AD (AppId y AppSecret).
-- TLS 1.2 habilitado en el sistema.
+.DESCRIPTION
+    Este script ejecuta el módulo `Get-WindowsAutopilotInfo` para registrar el dispositivo
+    en Microsoft Autopilot con los parámetros proporcionados (TenantID, AppId, AppSecret).
+    Si la ejecución es correcta, el equipo se apaga automáticamente; en caso de error, se muestra un
+    mensaje en rojo y no se apaga.
 
------------------------------------------------------------------------------------------------------
-¿CÓMO FUNCIONA?
------------------------------------------------------------------------------------------------------
-1. Establece TLS 1.2.
-2. Ajusta ExecutionPolicy en el ámbito del proceso.
-3. Guarda modelo y número de serie en `Informacion_dispositivos.txt` (si no existe ya).
-4. Ejecuta `Get-WindowsAutopilotInfo.ps1` con parámetros.
-5. Apaga si la ejecución es exitosa; si no, muestra error.
-6. Registra acciones en un archivo de log.
+    Funcionalidad:
+    1. Establece TLS 1.2.
+    2. Ajusta ExecutionPolicy en el ámbito del proceso.
+    3. Guarda modelo y número de serie en `Informacion_dispositivos.txt`.
+    4. Ejecuta `Get-WindowsAutopilotInfo.ps1` con parámetros.
+    5. Apaga si la ejecución es exitosa.
 
------------------------------------------------------------------------------------------------------
-AUTOR: Alejandro Suárez (@alexsf93)
-=====================================================================================================
+.PARAMETER TenantID
+    (Hardcoded en el script) ID del Tenant de Azure.
+
+.PARAMETER AppId
+    (Hardcoded en el script) ID de la Aplicación.
+
+.PARAMETER AppSecret
+    (Hardcoded en el script) Secreto de la Aplicación.
+
+.EXAMPLE
+    .\Script - Intune_AutopilotAdd.ps1
+    Ejecuta el proceso de registro y apagado.
+
+.NOTES
+    Nombre:   Script - Intune_AutopilotAdd.ps1
+    Autor:    Alejandro Suárez (@alexsf93)
+    Versión:  1.0
+    Requisitos: PowerShell 5.1+, Privilegios de Administrador.
 #>
 
-$TenantID   = "TENANT-ID"
-$AppId      = "APP-ID"
-$AppSecret  = "APP-SECRET"
+$TenantID = "TENANT-ID"
+$AppId = "APP-ID"
+$AppSecret = "APP-SECRET"
 $ScriptName = "Get-WindowsAutopilotInfo.ps1"
-$LogFile    = "$env:ProgramData\AutopilotRegister\AutopilotRun_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+$LogFile = "$env:ProgramData\AutopilotRegister\AutopilotRun_$(Get-Date -Format yyyyMMdd_HHmmss).log"
 
 New-Item -Path (Split-Path $LogFile) -ItemType Directory -Force | Out-Null
 
@@ -66,7 +70,8 @@ try {
         "-----------------" | Out-File -FilePath $deviceFile -Append -Encoding UTF8
         Write-Info "Información de dispositivo guardada en $deviceFile"
         Log "Guardado modelo=$model, serial=$serial en $deviceFile"
-    } else {
+    }
+    else {
         Write-Info "El número de serie $serial ya existe en $deviceFile. No se añadirá."
         Log "Serial $serial ya presente en $deviceFile"
     }
@@ -101,7 +106,8 @@ try {
         Log "Resultado OK: apagando equipo"
         Start-Sleep -Seconds 5
         shutdown.exe /s /f /t 0
-    } else {
+    }
+    else {
         Write-ErrorRed "Se detectaron errores durante la ejecución. No se apagará el equipo."
         Write-ErrorRed "Revisa el log: $LogFile"
         throw "ExecutionHeuristicDetectedError"
