@@ -37,7 +37,9 @@ Requisitos:
 - Módulo turtle (generalmente viene preinstalado en Python estándar)
 
 ------------------------------------------------
-Autor: Alejandro Suárez (@alexsf93)
+Nombre:   Juego - Snake.py
+Autor:    Alejandro Suárez (@alexsf93)
+Versión:  1.0
 ===============================================
 """
 

@@ -1,4 +1,3 @@
-﻿
 <#
 .SYNOPSIS
     Script de prueba: Envío de mensaje UDP al puerto 8866 en localhost.

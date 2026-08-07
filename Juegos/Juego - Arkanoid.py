@@ -27,7 +27,9 @@ POWER-UPS:
 ¡Ten cuidado con los power-ups malos!
 
 ------------------------------------------------------------
-Autor: Alejandro Suárez (@alexsf93)
+Nombre:   Juego - Arkanoid.py
+Autor:    Alejandro Suárez (@alexsf93)
+Versión:  1.0
 ============================================================
 """
 

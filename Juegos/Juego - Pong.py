@@ -36,7 +36,9 @@ REQUISITOS
 - No requiere instalación adicional.
 
 ------------------------------------------------------------
-Autor: Alejandro Suárez (@alexsf93)
+Nombre:   Juego - Pong.py
+Autor:    Alejandro Suárez (@alexsf93)
+Versión:  1.0
 ============================================================
 """
 
