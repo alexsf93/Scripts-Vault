@@ -31,16 +31,16 @@
     Profundidad maxima de exploracion de subcarpetas en bibliotecas de documentos (por defecto: 5).
 
 .EXAMPLE
-    & '.\Sharepoint - Auditoria permisos.ps1'
+    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1'
 
 .EXAMPLE
-    & '.\Sharepoint - Auditoria permisos.ps1' -SiteUrl "Administracion"
+    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1' -SiteUrl "Administracion"
 
 .EXAMPLE
-    & '.\Sharepoint - Auditoria permisos.ps1' -SiteUrl "https://contoso.sharepoint.com/sites/Administracion" -HtmlOutputPath ".\Auditoria_Administracion.html"
+    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1' -SiteUrl "https://contoso.sharepoint.com/sites/Administracion" -HtmlOutputPath ".\Auditoria_Administracion.html"
 
 .NOTES
-    Nombre:   Sharepoint - Auditoria permisos.ps1
+    Nombre:   Microsoft 365 - SharePoint - Auditoria_Permisos.ps1
     Autor:    Alejandro Suarez (@alexsf93)
     Version:  3.6.0
     Fecha:    2026-08-07

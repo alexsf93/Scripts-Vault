@@ -11,15 +11,15 @@
     Nombre del usuario (UPN) para filtrar un buzon especifico. Si se omite, se muestran todos.
 
 .EXAMPLE
-    .\Exchange-Gathering.ps1
+    & '.\Microsoft 365 - Exchange - Recopilacion_Buzones.ps1'
     Muestra todos los buzones en una tabla interactiva.
 
 .EXAMPLE
-    .\Exchange-Gathering.ps1 -User usuario@dominio.com
+    & '.\Microsoft 365 - Exchange - Recopilacion_Buzones.ps1' -User usuario@dominio.com
     Muestra solo el buzon del usuario especificado.
 
 .NOTES
-    Nombre:   Exchange - Gathering.ps1
+    Nombre:   Microsoft 365 - Exchange - Recopilacion_Buzones.ps1
     Autor:    Alejandro Suarez (@alexsf93)
     Version:  1.0
 #>

@@ -10,7 +10,7 @@
     Este script no acepta parametros por linea de comandos actualmente.
 
 .EXAMPLE
-    .\Script - Sender_UDP.ps1
+    & '.\Script - Sender_UDP.ps1'
     Envia un mensaje de prueba al puerto 8866 en localhost.
 
 .NOTES

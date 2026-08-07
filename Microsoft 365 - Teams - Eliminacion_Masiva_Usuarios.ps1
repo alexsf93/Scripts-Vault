@@ -16,15 +16,15 @@
     (Opcional) Dominio para filtrar usuarios (ej: externo.com).
 
 .EXAMPLE
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Guest
+    & '.\Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1' -TeamName "Proyecto X" -TargetRole Guest
     Elimina todos los invitados del equipo.
 
 .EXAMPLE
-    .\Teams-Bulk_User_Cleanup.ps1 -TeamName "Proyecto X" -TargetRole Member -Domain "contratista.org"
+    & '.\Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1' -TeamName "Proyecto X" -TargetRole Member -Domain "contratista.org"
     Elimina miembros del dominio especificado.
 
 .NOTES
-    Nombre:   Teams - Bulk_User_Cleanup.ps1
+    Nombre:   Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1
     Autor:    Alejandro Suarez (@alexsf93)
     Version:  1.0
 #>

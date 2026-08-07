@@ -18,10 +18,10 @@ Colección de scripts y utilidades para administración de sistemas Windows/M365
 
 | Script | Descripción |
 | :--- | :--- |
-| `Sharepoint - Auditoria permisos.ps1` | Auditoría completa de permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos) vía Graph API con reporte HTML interactivo. |
-| `Exchange - Gathering.ps1` | Obtiene un reporte detallado de buzones de Exchange Online en una tabla interactiva (`Out-GridView`). |
-| `Teams - Bulk_User_Cleanup.ps1` | Eliminación masiva de usuarios (miembros o invitados) en equipos de Microsoft Teams con filtrado por dominio. |
-| `Script - Intune_AutopilotAdd.ps1` | Registra el equipo local en Microsoft Autopilot vía `Get-WindowsAutopilotInfo` y apaga el equipo tras completar. |
+| `Microsoft 365 - SharePoint - Auditoria_Permisos.ps1` | Auditoría completa de permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos) vía Graph API con reporte HTML interactivo. |
+| `Microsoft 365 - Exchange - Recopilacion_Buzones.ps1` | Obtiene un reporte detallado de buzones de Exchange Online en una tabla interactiva (`Out-GridView`). |
+| `Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1` | Eliminación masiva de usuarios (miembros o invitados) en equipos de Microsoft Teams con filtrado por dominio. |
+| `Microsoft Intune - Registro_Dispositivo_Autopilot.ps1` | Registra el equipo local en Microsoft Autopilot vía `Get-WindowsAutopilotInfo` y apaga el equipo tras completar. |
 | `Script - Listener_UDP.ps1` | Inicia un servidor de escucha UDP en el puerto indicado para pruebas de red. |
 | `Script - Sender_UDP.ps1` | Envía paquetes UDP de prueba a un servidor local. |
 

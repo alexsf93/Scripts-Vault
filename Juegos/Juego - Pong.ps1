@@ -10,7 +10,7 @@
     Este script no requiere parametros.
 
 .EXAMPLE
-    .\Juego - Pong.ps1
+    & '.\Juego - Pong.ps1'
     Inicia el juego.
 
 .NOTES

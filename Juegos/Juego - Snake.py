@@ -3,20 +3,20 @@
         S N A K E  RETRO CRT  -  TURTLE
 ===============================================
 
-Este script implementa una versión retro del clásico juego Snake usando la librería Turtle de Python,
-emulando el efecto de una pantalla CRT (colores neón y borde fosforescente).
+Este script implementa una version retro del clasico juego Snake usando la libreria Turtle de Python,
+emulando el efecto de una pantalla CRT (colores neon y borde fosforescente).
 
 ------------------------------------------------
-Características principales:
+Caracteristicas principales:
 ------------------------------------------------
-- Área de juego enmarcada en color verde neón.
+- Area de juego enmarcada en color verde neon.
 - Snake con cabeza brillante y cuerpo verde.
 - Fruta normal (roja) y fruta especial amarilla que otorga una vida extra.
-- Sistema de puntuación y vidas, con hasta 5 vidas máximas.
-- Texto de puntuación y vidas al estilo retro en la parte superior.
-- Animaciones y ASCII art del título.
+- Sistema de puntuacion y vidas, con hasta 5 vidas maximas.
+- Texto de puntuacion y vidas al estilo retro en la parte superior.
+- Animaciones y ASCII art del titulo.
 - Dificultad incremental: el snake se acelera cada vez que comes una fruta.
-- Game Over con contador de reinicio automático.
+- Game Over con contador de reinicio automatico.
 
 ------------------------------------------------
 Controles:
@@ -26,20 +26,20 @@ Controles:
 ------------------------------------------------
 Notas:
 ------------------------------------------------
-- Si la serpiente colisiona con un muro o su propio cuerpo, pierdes una vida y parte de la puntuación.
-- La fruta amarilla aparece aleatoriamente y otorga una vida extra si no tienes el máximo.
+- Si la serpiente colisiona con un muro o su propio cuerpo, pierdes una vida y parte de la puntuacion.
+- La fruta amarilla aparece aleatoriamente y otorga una vida extra si no tienes el maximo.
 - Cuando pierdes todas las vidas, el juego muestra "Game Over" y reinicia tras unos segundos.
 
 ------------------------------------------------
 Requisitos:
 ------------------------------------------------
 - Python 3.x
-- Módulo turtle (generalmente viene preinstalado en Python estándar)
+- Modulo turtle (generalmente viene preinstalado en Python estandar)
 
 ------------------------------------------------
 Nombre:   Juego - Snake.py
-Autor:    Alejandro Suárez (@alexsf93)
-Versión:  1.0
+Autor:    Alejandro Suarez (@alexsf93)
+Version:  1.0
 ===============================================
 """
 

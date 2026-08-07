@@ -25,11 +25,11 @@
     (Hardcoded en el script) Secreto de la Aplicacion.
 
 .EXAMPLE
-    .\Script - Intune_AutopilotAdd.ps1
+    & '.\Microsoft Intune - Registro_Dispositivo_Autopilot.ps1'
     Ejecuta el proceso de registro y apagado.
 
 .NOTES
-    Nombre:   Script - Intune_AutopilotAdd.ps1
+    Nombre:   Microsoft Intune - Registro_Dispositivo_Autopilot.ps1
     Autor:    Alejandro Suarez (@alexsf93)
     Version:  1.0
     Requisitos: PowerShell 5.1+, Privilegios de Administrador.

@@ -2,16 +2,16 @@
 ============================================================
                       PONG RETRO CRT
 ------------------------------------------------------------
-Un remake del clásico juego Pong con estilo visual CRT
+Un remake del clasico juego Pong con estilo visual CRT
 (ochentero, verde fosforescente y bordes de tubo), hecho en
-Python usando la librería Turtle. ¡Incluye marcador arcade,
+Python usando la libreria Turtle. ¡Incluye marcador arcade,
 notificaciones y controles tipo recreativa!
 
 ------------------------------------------------------------
-¿CÓMO JUGAR?
+¿COMO JUGAR?
 ------------------------------------------------------------
 - Mueve tu pala IZQUIERDA usando las flechas ↑ y ↓
-  (puedes mantenerlas pulsadas para moverte más rápido).
+  (puedes mantenerlas pulsadas para moverte mas rapido).
 - Juegas contra la CPU (pala derecha).
 - El primero que falle un rebote pierde punto.
 - Cada punto se notifica en pantalla, con marcador grande
@@ -19,26 +19,26 @@ notificaciones y controles tipo recreativa!
 - Pulsa la tecla Q para salir del juego en cualquier momento.
 
 ------------------------------------------------------------
-CARACTERÍSTICAS CRT/ARCADE
+CARACTERISTICAS CRT/ARCADE
 ------------------------------------------------------------
-- Efecto de bordes y líneas tipo monitor antiguo (CRT).
+- Efecto de bordes y lineas tipo monitor antiguo (CRT).
 - Colores fosforescentes ochenteros.
 - Marcador arcade, ordenado y centrado.
-- Mensajes de puntuación con "fade" al centro de pantalla.
+- Mensajes de puntuacion con "fade" al centro de pantalla.
 - Movimiento fluido de palas (manteniendo flecha pulsada).
-- Sin ventanas ni prompts: sólo juega y disfruta.
+- Sin ventanas ni prompts: solo juega y disfruta.
 
 ------------------------------------------------------------
 REQUISITOS
 ------------------------------------------------------------
 - Python 3.x
-- Librería estándar `turtle` (ya incluida en Python)
-- No requiere instalación adicional.
+- Libreria estandar `turtle` (ya incluida en Python)
+- No requiere instalacion adicional.
 
 ------------------------------------------------------------
 Nombre:   Juego - Pong.py
-Autor:    Alejandro Suárez (@alexsf93)
-Versión:  1.0
+Autor:    Alejandro Suarez (@alexsf93)
+Version:  1.0
 ============================================================
 """
 

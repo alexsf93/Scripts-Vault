@@ -10,11 +10,11 @@
     El puerto UDP donde escuchar. Por defecto es 8866.
 
 .EXAMPLE
-    .\Script - Listener_UDP.ps1
+    & '.\Script - Listener_UDP.ps1'
     Inicia la escucha en el puerto 8866.
 
 .EXAMPLE
-    .\Script - Listener_UDP.ps1 -Port 9000
+    & '.\Script - Listener_UDP.ps1' -Port 9000
     Inicia la escucha en el puerto 9000.
 
 .NOTES
