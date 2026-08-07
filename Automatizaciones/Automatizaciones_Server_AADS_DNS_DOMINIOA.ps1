@@ -21,7 +21,6 @@
     Requisitos: Ejecutar como Administrador.
 #>
 
-
 $domainName = "DominioA.local"
 $netbiosName = "DOMINIOA"
 $dsrmPassword = ConvertTo-SecureString "Naxvan1993" -AsPlainText -Force  # Cambia la contrasena por seguridad

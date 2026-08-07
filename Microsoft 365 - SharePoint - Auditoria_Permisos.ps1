@@ -67,6 +67,10 @@ param(
     )
 )
 
+if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
+    Write-Host "  [*] Instalando modulo requerido 'Microsoft.Graph.Authentication' desde PowerShell Gallery..." -ForegroundColor Yellow
+    Install-Module Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+}
 Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
 
 # Encabezado sencillo y limpio para cada paso
@@ -734,7 +738,7 @@ function Export-PermissionsToHtml {
             box-shadow: var(--shadow-card);
             transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-        .metric-card .title { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-card .title { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; letter-spacing: 0.5px; }
         .metric-card .value { font-size: 1.8rem; font-weight: 700; color: var(--text-heading); margin-top: 6px; }
         .metric-card .subtext { font-size: 0.75rem; color: var(--accent-cyan); margin-top: 4px; }
 

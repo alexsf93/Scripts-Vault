@@ -19,7 +19,9 @@ Colección de scripts y utilidades para administración de sistemas Windows/M365
 | Script | Descripción |
 | :--- | :--- |
 | `Microsoft 365 - SharePoint - Auditoria_Permisos.ps1` | Auditoría completa de permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos) vía Graph API con reporte HTML interactivo. |
+| `Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1` | Auditoría previa y limpieza de versiones obsoletas en SharePoint Online con cálculo de MB/GB salvados e informes visuales en HTML. |
 | `Microsoft 365 - Exchange - Recopilacion_Buzones.ps1` | Obtiene un reporte detallado de buzones de Exchange Online en una tabla interactiva (`Out-GridView`). |
+| `Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1` | Auditoría previa y limpieza de correos antiguos (>6 meses) por destinatario con selector de carpetas (Enviados, Entrada, Spam, Otros) vía Graph API con cálculo de MB/GB liberados del buzón e informes HTML. |
 | `Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1` | Eliminación masiva de usuarios (miembros o invitados) en equipos de Microsoft Teams con filtrado por dominio. |
 | `Microsoft Intune - Registro_Dispositivo_Autopilot.ps1` | Registra el equipo local en Microsoft Autopilot vía `Get-WindowsAutopilotInfo` y apaga el equipo tras completar. |
 | `Script - Listener_UDP.ps1` | Inicia un servidor de escucha UDP en el puerto indicado para pruebas de red. |
@@ -41,6 +43,13 @@ Colección de scripts y utilidades para administración de sistemas Windows/M365
 | :--- | :--- |
 | `Automatizaciones_Cliente_W11.ps1` | Post-instalación y puesta a punto de Windows 11 (región, limpieza de bloatware, software básico). |
 | `Automatizaciones_Server_AADS_DNS_DOMINIOA.ps1` | Instalación 100% desatendida de los roles Active Directory Domain Services y DNS. |
+
+### 🧪 Scripts de Prueba y Generación de Datos (Ruido / Seeding)
+
+| Script | Descripción |
+| :--- | :--- |
+| `Pruebas-Seeding/Pruebas-Seeding - Generador_Datos_SharePoint.ps1` | Crea una biblioteca de prueba en SharePoint Online y sube archivos forzando la creación de historial de versiones real para pruebas de limpieza. |
+| `Pruebas-Seeding/Pruebas-Seeding - Generador_Datos_Exchange.ps1` | Genera correos simulados (antiguos >6 meses y recientes) en un buzón de Exchange hacia un destinatario para probar auditoría y borrado. |
 
 ### 🎮 Juegos Retro
 

@@ -41,6 +41,12 @@ $AppSecret = "APP-SECRET"
 $ScriptName = "Get-WindowsAutopilotInfo.ps1"
 $LogFile = "$env:ProgramData\AutopilotRegister\AutopilotRun_$(Get-Date -Format yyyyMMdd_HHmmss).log"
 
+# Validar sistema operativo (Requiere Windows para WMI/CIM y Autopilot)
+if ($IsLinux -or $IsMacOS) {
+    Write-Host "ERROR: Este script requiere un entorno Windows (Windows PowerShell / PowerShell 7 en Windows) para acceder a WMI/CIM y registrar el dispositivo en Autopilot." -ForegroundColor Red
+    exit 1
+}
+
 New-Item -Path (Split-Path $LogFile) -ItemType Directory -Force | Out-Null
 
 function Log { param([string]$m); "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`t$m" | Out-File -FilePath $LogFile -Append -Encoding UTF8 }
@@ -83,7 +89,14 @@ try {
     Write-Info "ExecutionPolicy (Process=RemoteSigned)..."
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
 
-    # Ejecutar script Autopilot local
+    # Verificar disponibilidad de Get-WindowsAutopilotInfo y auto-instalar si no existe
+    if (-not (Get-Command "Get-WindowsAutopilotInfo" -ErrorAction SilentlyContinue) -and -not (Test-Path $ScriptName)) {
+        Write-Info "Instalando script 'Get-WindowsAutopilotInfo' desde PowerShell Gallery..."
+        Install-Script -Name Get-WindowsAutopilotInfo -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+        $ScriptName = "Get-WindowsAutopilotInfo"
+    }
+
+    # Ejecutar script Autopilot
     Write-Info "Ejecutando $ScriptName con parámetros..."
     $t0 = Get-Date
     $output = & $ScriptName -Online -TenantID $TenantID -appid $AppId -appsecret $AppSecret *>&1

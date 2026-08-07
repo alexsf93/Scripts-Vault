@@ -5,23 +5,22 @@
 .DESCRIPTION
     Este script se conecta a Exchange Online y obtiene informacion detallada de todos los buzones de usuario, excluyendo buzones de sistema.
     Permite buscar un buzon concreto con -User o mostrar todos los buzones.
-    Presenta los datos en una tabla interactiva (Out-GridView) para buscar, ordenar y filtrar facilmente.
+    Presenta los datos en una tabla interactiva (Out-GridView) en Windows o por consola (Format-Table) en Cloud Shell.
 
 .PARAMETER User
     Nombre del usuario (UPN) para filtrar un buzon especifico. Si se omite, se muestran todos.
 
 .EXAMPLE
     & '.\Microsoft 365 - Exchange - Recopilacion_Buzones.ps1'
-    Muestra todos los buzones en una tabla interactiva.
 
 .EXAMPLE
     & '.\Microsoft 365 - Exchange - Recopilacion_Buzones.ps1' -User usuario@dominio.com
-    Muestra solo el buzon del usuario especificado.
 
 .NOTES
-    Nombre:   Microsoft 365 - Exchange - Recopilacion_Buzones.ps1
-    Autor:    Alejandro Suarez (@alexsf93)
-    Version:  1.0
+    Nombre:      Microsoft 365 - Exchange - Recopilacion_Buzones.ps1
+    Autor:       Alejandro Suarez (@alexsf93)
+    Version:     1.1.0
+    Requisitos:  PowerShell 5.1 / 7.x ejecutado localmente en Windows (Recomendado por Out-GridView y la pila de conexion de Exchange).
 #>
 
 param(
@@ -33,12 +32,26 @@ param(
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 
 if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
-    Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force
+    Write-Host "Instalando modulo requerido 'ExchangeOnlineManagement' desde PowerShell Gallery..." -ForegroundColor Yellow
+    Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 }
 
-Import-Module ExchangeOnlineManagement 6>$null
+Import-Module ExchangeOnlineManagement -ErrorAction Stop
 
-Connect-ExchangeOnline -UserPrincipalName "usuario@dominio.tld" 6>$null
+Write-Host "Conectando a Exchange Online..." -ForegroundColor Cyan
+try {
+    if ($env:ACC_CLOUD -or $env:AZURE_HTTP_USER_AGENT -match 'cloud-shell') {
+        Connect-ExchangeOnline -Device -ErrorAction Stop
+    } else {
+        if ($User) {
+            Connect-ExchangeOnline -UserPrincipalName $User -ErrorAction SilentlyContinue
+        } else {
+            Connect-ExchangeOnline -ErrorAction Stop
+        }
+    }
+} catch {
+    Connect-ExchangeOnline
+}
 
 Write-Host "Obteniendo buzones de Exchange (excluyendo buzones de sistema)..." -ForegroundColor Cyan
 
@@ -49,7 +62,7 @@ if ($null -ne $User -and $User.Trim() -ne "") {
     if (-not $mailboxes) {
         Write-Warning "No se encontro ningun buzon para el usuario '$User'."
         Disconnect-ExchangeOnline -Confirm:$false
-        exit
+        exit 0
     }
 } else {
     $mailboxes = Get-Mailbox -ResultSize Unlimited | Where-Object {
@@ -58,33 +71,31 @@ if ($null -ne $User -and $User.Trim() -ne "") {
 }
 
 function Convert-ToMB {
-    param($value)
-    if ($value -match "(\d+[\.,]?\d*)\s*GB") {
-        return [math]::Round(([double]$matches[1]) * 1024,2)
-    } elseif ($value -match "(\d+[\.,]?\d*)\s*MB") {
-        return [math]::Round([double]$matches[1],2)
-    } else {
-        return $null
+    param([string]$sizeStr)
+    if ([string]::IsNullOrWhiteSpace($sizeStr)) { return $null }
+    if ($sizeStr -match '([\d\.]+)\s*(Bytes|KB|MB|GB|TB)') {
+        $num = [double]$matches[1]
+        $unit = $matches[2].ToUpper()
+        switch ($unit) {
+            'BYTES' { return [math]::Round($num / 1MB, 4) }
+            'KB'    { return [math]::Round($num / 1KB, 4) }
+            'MB'    { return $num }
+            'GB'    { return [math]::Round($num * 1024, 2) }
+            'TB'    { return [math]::Round($num * 1024 * 1024, 2) }
+        }
     }
+    return $null
 }
 
-$resultados = foreach ($mb in $mailboxes) {
+$resultados = @()
+foreach ($mb in $mailboxes) {
     try {
-        $stats = Get-MailboxStatistics -Identity $mb.UserPrincipalName
+        $stats = Get-MailboxStatistics -Identity $mb.UserPrincipalName -ErrorAction SilentlyContinue
+        $aliases = $mb.EmailAddresses | Where-Object { $_ -like "smtp:*" } | ForEach-Object { $_ -replace "^smtp:", "" }
 
-        # Alias, eliminando smtp:, ignorando el principal
-        $primary = $mb.PrimarySmtpAddress.ToString().ToLower()
-        $aliases = $mb.EmailAddresses | Where-Object {
-            ($_ -like "smtp:*") -and ($_.ToString().Substring(5).ToLower() -ne $primary)
-        } | ForEach-Object {
-            $_.ToString().Substring(5)
-        }
+        $consumidoStr = if ($stats.TotalItemSize) { $stats.TotalItemSize.Value.ToString() } else { "N/A" }
+        $limiteStr    = if ($mb.ProhibitSendQuota) { $mb.ProhibitSendQuota.Value.ToString() } else { "N/A" }
 
-        # Quitar la parte " (xxxx bytes)" de consumido y limite
-        $consumidoStr = $stats.TotalItemSize.ToString() -replace '\s*\(.*\)', ''
-        $limiteStr = if ($null -ne $mb.ProhibitSendQuota) { $mb.ProhibitSendQuota.ToString() -replace '\s*\(.*\)', '' } else { "No definido" }
-
-        # Calculo porcentaje de uso (comparacion $null -ne X)
         $consumidoMB = Convert-ToMB $consumidoStr
         $limiteMB = Convert-ToMB $limiteStr
         if (($null -ne $consumidoMB) -and ($null -ne $limiteMB) -and ($limiteMB -gt 0)) {
@@ -94,7 +105,7 @@ $resultados = foreach ($mb in $mailboxes) {
             $porcentajeTxt = "No disponible"
         }
 
-        [PSCustomObject]@{
+        $resultados += [PSCustomObject]@{
             Nombre                = $mb.DisplayName
             Usuario               = $mb.UserPrincipalName
             TipoBuzon             = $mb.RecipientTypeDetails
@@ -114,9 +125,20 @@ $resultados = foreach ($mb in $mailboxes) {
     }
 }
 
-# Mostrar resultados en una tabla interactiva (Out-GridView)
+# Mostrar resultados con fallback para Cloud Shell / Linux PS7 (donde Out-GridView no esta disponible)
 if ($resultados.Count -gt 0) {
-    $resultados | Out-GridView -Title "Resumen de buzones Exchange Online"
+    $isCloudShell = $env:ACC_CLOUD -or $env:AZURE_HTTP_USER_AGENT -match 'cloud-shell'
+    if (-not $isCloudShell -and (Get-Command Out-GridView -ErrorAction SilentlyContinue)) {
+        try {
+            $resultados | Out-GridView -Title "Resumen de buzones Exchange Online"
+        } catch {
+            Write-Host "`nResumen de buzones Exchange Online:" -ForegroundColor Yellow
+            $resultados | Format-Table -AutoSize
+        }
+    } else {
+        Write-Host "`nResumen de buzones Exchange Online:" -ForegroundColor Yellow
+        $resultados | Format-Table -AutoSize
+    }
 } else {
     Write-Host "No hay datos para mostrar." -ForegroundColor Yellow
 }

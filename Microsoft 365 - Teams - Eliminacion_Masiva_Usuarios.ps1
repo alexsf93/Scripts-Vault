@@ -26,7 +26,7 @@
 .NOTES
     Nombre:   Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1
     Autor:    Alejandro Suarez (@alexsf93)
-    Version:  1.0
+    Version:  1.0.1
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
@@ -45,7 +45,7 @@ param(
 
 Write-Host "Rol objetivo: $TargetRole" -ForegroundColor Cyan
 if ($Domain) {
-    Write-Host "Filtro de dominio: *@$Domain (y formato #EXT#)" -ForegroundColor Cyan
+    Write-Host ("Filtro de dominio: *@" + $Domain + " (y formato #EXT#)") -ForegroundColor Cyan
 }
 
 # Forzar UTF-8
@@ -55,9 +55,10 @@ $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 # 1. Conexion a Microsoft Teams
 # ---------------------------------------------------------
 if (-not (Get-Module -ListAvailable -Name MicrosoftTeams)) {
-    Install-Module MicrosoftTeams -Scope CurrentUser -Force
+    Write-Host "Instalando modulo requerido 'MicrosoftTeams' desde PowerShell Gallery..." -ForegroundColor Yellow
+    Install-Module MicrosoftTeams -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 }
-Import-Module MicrosoftTeams 6>$null
+Import-Module MicrosoftTeams -ErrorAction Stop
 
 Write-Host "Conectando a Microsoft Teams..." -ForegroundColor Cyan
 if ($env:ACC_CLOUD -or $env:AZURE_HTTP_USER_AGENT -match 'cloud-shell') {
@@ -79,11 +80,13 @@ Write-Host "Buscando equipo '$TeamName'..." -ForegroundColor Cyan
 try {
     $team = Get-Team -DisplayName $TeamName -ErrorAction Stop
     if ($team.Count -gt 1) {
-        Write-Error "Múltiples equipos encontrados con ese nombre. Sé más específico."; exit
+        Write-Error "Multiples equipos encontrados con ese nombre. Se mas especifico."
+        exit 1
     }
 }
 catch {
-    Write-Error "No se encontró el equipo '$TeamName'."; exit
+    Write-Error "No se encontro el equipo '$TeamName'."
+    exit 1
 }
 
 Write-Host "Analizando miembros del equipo (esto puede tardar)..." -ForegroundColor Cyan
@@ -94,17 +97,17 @@ switch ($TargetRole) {
     'Guest' { $usersToCheck = $members | Where-Object { $_.Role -eq "Guest" } }
     'Member' { 
         $usersToCheck = $members | Where-Object { $_.Role -eq "Member" } 
-        Write-Warning "Se excluirán automáticamente los Propietarios (Owners) para proteger el equipo."
+        Write-Warning "Se excluiran automaticamente los Propietarios (Owners) para proteger el equipo."
     }
     'Both' { 
         $usersToCheck = $members | Where-Object { $_.Role -ne "Owner" }
-        Write-Warning "Se excluirán automáticamente los Propietarios (Owners) para proteger el equipo."
+        Write-Warning "Se excluiran automaticamente los Propietarios (Owners) para proteger el equipo."
     }
 }
 
 if (-not $usersToCheck) {
     Write-Host "No hay usuarios del rol '$TargetRole' en este equipo." -ForegroundColor Yellow
-    exit
+    exit 0
 }
 
 # ---------------------------------------------------------
@@ -115,18 +118,18 @@ $targets = @()
 # Aplicar filtro de dominio si se especifico
 if ($Domain) {
     # Buscar tanto formato estandar (*@dominio.com) como formato #EXT# (*_dominio.com#EXT#@*)
-    $standardPattern = "*@$Domain"
-    $extPattern = "*_${Domain}#EXT#@*"
+    $standardPattern = "*@" + $Domain
+    $extPattern = "*_" + $Domain + "#EXT#@*"
     
-    Write-Host "Aplicando filtro de dominio: $standardPattern (y formato #EXT#)" -ForegroundColor Cyan
+    Write-Host ("Aplicando filtro de dominio: " + $standardPattern + " (y formato #EXT#)") -ForegroundColor Cyan
     $usersToCheck = $usersToCheck | Where-Object { 
         ($_.User -like $standardPattern) -or ($_.User -like $extPattern)
     }
     
     if (-not $usersToCheck) {
         Write-Host "No se encontraron usuarios del dominio '$Domain' con el rol '$TargetRole'." -ForegroundColor Yellow
-        Write-Host "Nota: Se buscó en formato estándar (*@$Domain) y formato externo (*_${Domain}#EXT#@*)" -ForegroundColor Gray
-        exit
+        Write-Host ("Nota: Se busco en formato estandar (*@" + $Domain + ") y formato externo (*_" + $Domain + "#EXT#@*)") -ForegroundColor Gray
+        exit 0
     }
 }
 
@@ -148,13 +151,13 @@ $count = $targets.Count
 
 if ($count -eq 0) {
     Write-Host "No se encontraron usuarios ($TargetRole) que coincidan con el criterio." -ForegroundColor Yellow
-    exit
+    exit 0
 }
 
 Write-Host "`nSe han encontrado $count usuarios para eliminar." -ForegroundColor Cyan
 $targets | ForEach-Object { Write-Host " - $($_.User) [$($_.Role)]" -ForegroundColor Gray }
 
-Write-Warning "`n¡ATENCIÓN! Se procederá a eliminar estos $count usuarios del equipo '$TeamName'."
+Write-Warning "`nATENCION: Se procedera a eliminar estos $count usuarios del equipo '$TeamName'."
 
 $deletedLog = @()
 foreach ($target in $targets) {
@@ -166,7 +169,7 @@ foreach ($target in $targets) {
             $deletedLog += $target.User
         }
         catch {
-            Write-Warning " [ERROR] Falló eliminación de $($target.User): $_"
+            Write-Warning " [ERROR] Fallo eliminacion de $($target.User): $_"
         }
     }
 }
@@ -176,24 +179,23 @@ foreach ($target in $targets) {
 # ---------------------------------------------------------
 if ($deletedLog.Count -gt 0) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmm"
-    $sanitizedTeamName = $TeamName -replace '[\\/:*?"<>|]', ''
+    $sanitizedTeamName = $TeamName -replace '[^a-zA-Z0-9_\-\s]', ''
     $logFile = "DeletedUsers_${TargetRole}_${sanitizedTeamName}_${timestamp}.log"
     $logPath = if ($PSScriptRoot) { Join-Path $PSScriptRoot $logFile } else { Join-Path $PWD $logFile }
 
-    $logContent = @(
-        "==========================================",
-        "       USUARIOS ELIMINADOS (LOG)          ",
-        "==========================================",
-        "Equipo: $TeamName",
-        "Rol Objetivo: $TargetRole",
-        $(if ($Domain) { "Filtro Dominio: *@$Domain (y #EXT#)" }),
-        "Fecha Ejecución: $(Get-Date)",
-        "------------------------------------------"
-    )
-    $logContent += $deletedLog
-    $logContent += "------------------------------------------"
-    $logContent += "Total: $($deletedLog.Count)"
-    
+    $logContent = [System.Collections.Generic.List[string]]::new()
+    $logContent.Add("==========================================")
+    $logContent.Add("       USUARIOS ELIMINADOS (LOG)          ")
+    $logContent.Add("==========================================")
+    $logContent.Add("Equipo: $TeamName")
+    $logContent.Add("Rol Objetivo: $TargetRole")
+    if ($Domain) { $logContent.Add("Filtro Dominio: *@" + $Domain + " (y #EXT#)") }
+    $logContent.Add("Fecha Ejecucion: $(Get-Date)")
+    $logContent.Add("------------------------------------------")
+    foreach ($item in $deletedLog) { $logContent.Add($item) }
+    $logContent.Add("------------------------------------------")
+    $logContent.Add("Total: $($deletedLog.Count)")
+
     $logContent | Out-File -FilePath $logPath -Encoding utf8
     Write-Host "`n[INFO] Log guardado en: $logPath" -ForegroundColor Green
 }

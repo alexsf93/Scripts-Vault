@@ -15,5 +15,7 @@ env/
 Thumbs.db
 desktop.ini
 
-# Output Logs
+# Output Logs & Generated Reports
 *.log
+*_Reporte.html
+*_Resultado_Eliminacion.html

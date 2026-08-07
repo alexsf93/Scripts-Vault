@@ -23,7 +23,6 @@
     Requisitos: Ejecutar como Administrador.
 #>
 
-
 # --------- ZONA HORARIA (Madrid) ---------
 Set-TimeZone -Id "Romance Standard Time"
 
