@@ -1,22 +1,22 @@
 ﻿<#
 .SYNOPSIS
-    Script de prueba: Envío de mensaje UDP al puerto 8866 en localhost.
+    Script de prueba: Envio de mensaje UDP al puerto 8866 en localhost.
 
 .DESCRIPTION
-    Este script envía un mensaje UDP al puerto 8866 del servidor local (`localhost`) para validar la
-    comunicación mediante el protocolo UDP.
+    Este script envia un mensaje UDP al puerto 8866 del servidor local (`localhost`) para validar la
+    comunicacion mediante el protocolo UDP.
 
 .PARAMETER NoParameter
-    Este script no acepta parámetros por línea de comandos actualmente.
+    Este script no acepta parametros por linea de comandos actualmente.
 
 .EXAMPLE
     .\Script - Sender_UDP.ps1
-    Envía un mensaje de prueba al puerto 8866 en localhost.
+    Envia un mensaje de prueba al puerto 8866 en localhost.
 
 .NOTES
     Nombre:   Script - Sender_UDP.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
 #>
 
 $server = "localhost"

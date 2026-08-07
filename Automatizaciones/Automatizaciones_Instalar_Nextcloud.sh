@@ -1,11 +1,11 @@
 #!/bin/bash
 # ==============================================================================
 # Nombre:        Automatizaciones_Instalar_Nextcloud.sh
-# Descripción:   Instalador Headless de Nextcloud para Ubuntu 24.04 LTS.
-# Autor:         Alejandro Suárez (@alexsf93)
-# Versión:       1.0
+# Descripcion:   Instalador Headless de Nextcloud para Ubuntu 24.04 LTS.
+# Autor:         Alejandro Suarez (@alexsf93)
+# Version:       1.0
 # Uso:           ./Automatizaciones_Instalar_Nextcloud.sh [params...]
-# Notas:         Instala LAMP stack y Nextcloud. Configura base de datos automáticamante.
+# Notas:         Instala LAMP stack y Nextcloud. Configura base de datos automaticamante.
 # ==============================================================================
 
 set -euxo pipefail
@@ -75,7 +75,7 @@ sudo -u www-data php /var/www/html/occ maintenance:install \
 DOMAIN=$(echo "$SITE_URL" | sed 's|http[s]*://||;s|/.*$||')
 sudo -u www-data php /var/www/html/occ config:system:set trusted_domains 1 --value="$DOMAIN"
 
-# (Opcional) Ajusta el tamaño máximo de archivos a 2GB
+# (Opcional) Ajusta el tamano maximo de archivos a 2GB
 PHP_INI=$(php --ini | grep "Loaded Configuration" | awk '{print $4}')
 sed -i 's/post_max_size = .*/post_max_size = 2048M/' $PHP_INI
 sed -i 's/upload_max_filesize = .*/upload_max_filesize = 2048M/' $PHP_INI

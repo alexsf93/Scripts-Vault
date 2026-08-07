@@ -3,26 +3,26 @@
     Registro de dispositivo en Autopilot y apagado condicional.
 
 .DESCRIPTION
-    Este script ejecuta el módulo `Get-WindowsAutopilotInfo` para registrar el dispositivo
-    en Microsoft Autopilot con los parámetros proporcionados (TenantID, AppId, AppSecret).
-    Si la ejecución es correcta, el equipo se apaga automáticamente; en caso de error, se muestra un
+    Este script ejecuta el modulo `Get-WindowsAutopilotInfo` para registrar el dispositivo
+    en Microsoft Autopilot con los parametros proporcionados (TenantID, AppId, AppSecret).
+    Si la ejecucion es correcta, el equipo se apaga automaticamente; en caso de error, se muestra un
     mensaje en rojo y no se apaga.
 
     Funcionalidad:
     1. Establece TLS 1.2.
-    2. Ajusta ExecutionPolicy en el ámbito del proceso.
-    3. Guarda modelo y número de serie en `Informacion_dispositivos.txt`.
-    4. Ejecuta `Get-WindowsAutopilotInfo.ps1` con parámetros.
-    5. Apaga si la ejecución es exitosa.
+    2. Ajusta ExecutionPolicy en el ambito del proceso.
+    3. Guarda modelo y numero de serie en `Informacion_dispositivos.txt`.
+    4. Ejecuta `Get-WindowsAutopilotInfo.ps1` con parametros.
+    5. Apaga si la ejecucion es exitosa.
 
 .PARAMETER TenantID
     (Hardcoded en el script) ID del Tenant de Azure.
 
 .PARAMETER AppId
-    (Hardcoded en el script) ID de la Aplicación.
+    (Hardcoded en el script) ID de la Aplicacion.
 
 .PARAMETER AppSecret
-    (Hardcoded en el script) Secreto de la Aplicación.
+    (Hardcoded en el script) Secreto de la Aplicacion.
 
 .EXAMPLE
     .\Script - Intune_AutopilotAdd.ps1
@@ -30,8 +30,8 @@
 
 .NOTES
     Nombre:   Script - Intune_AutopilotAdd.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
     Requisitos: PowerShell 5.1+, Privilegios de Administrador.
 #>
 
@@ -51,7 +51,7 @@ Write-Info "Inicio del proceso de registro Autopilot."
 Log "Parámetros: TenantID=$TenantID, AppId=$AppId, Script=$ScriptName"
 
 try {
-    # Guardar modelo y número de serie si no existe
+    # Guardar modelo y numero de serie si no existe
     $deviceFile = Join-Path (Get-Location) "Informacion_dispositivos.txt"
     $sysInfo = Get-CimInstance -ClassName Win32_ComputerSystem
     $biosInfo = Get-CimInstance -ClassName Win32_BIOS

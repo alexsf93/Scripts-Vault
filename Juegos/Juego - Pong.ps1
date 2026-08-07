@@ -3,11 +3,11 @@
     Pong Retro en PowerShell.
 
 .DESCRIPTION
-    Este script ejecuta el clásico juego Pong directamente en la consola de Windows.
+    Este script ejecuta el clasico juego Pong directamente en la consola de Windows.
     Permite jugar contra la CPU usando las flechas del teclado.
 
 .PARAMETER NoParameter
-    Este script no requiere parámetros.
+    Este script no requiere parametros.
 
 .EXAMPLE
     .\Juego - Pong.ps1
@@ -15,8 +15,8 @@
 
 .NOTES
     Nombre:   Juego - Pong.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
 #>
 
 function Initialize-Game {
@@ -33,7 +33,7 @@ function Initialize-Game {
     $global:scoreCPU = 0
     $global:gameOver = $false
     $global:delay = 120      # velocidad inicial lenta (ms por frame)
-    $global:minDelay = 8     # velocidad máxima (mínimo delay)
+    $global:minDelay = 8     # velocidad maxima (minimo delay)
     $global:increaseSpeedStep = 8 # cuanto disminuye el delay cada rebote de pala
 }
 

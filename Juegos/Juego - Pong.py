@@ -47,7 +47,7 @@ import turtle
 import random
 
 # ===============================
-# CONFIGURACIÓN Y CONSTANTES CRT
+# CONFIGURACION Y CONSTANTES CRT
 # ===============================
 WIDTH, HEIGHT = 800, 600
 CRT_GREEN = "#39FF14"
@@ -64,7 +64,7 @@ PADDLE_SPEED = 10
 DELAY = 16  # ms por frame (16 ms = 60 FPS)
 
 # ===============================
-# INICIALIZACIÓN DE LA VENTANA
+# INICIALIZACION DE LA VENTANA
 # ===============================
 wn = turtle.Screen()
 wn.title("P O N G   RETRO CRT")
@@ -90,7 +90,7 @@ for _ in range(2):
     border_pen.right(90)
 border_pen.penup()
 
-# CRT líneas horizontales (simular scanlines)
+# CRT lineas horizontales (simular scanlines)
 scan_pen = turtle.Turtle()
 scan_pen.hideturtle()
 scan_pen.pensize(1)
@@ -108,9 +108,9 @@ for y in range(-HEIGHT//2+20, HEIGHT//2-20, 6):
 score_a = 0
 score_b = 0
 
-# Posición vertical extra para separar más texto y números
+# Posicion vertical extra para separar mas texto y numeros
 LABEL_Y = HEIGHT//2 - 65
-SCORE_Y = HEIGHT//2 - 140  # antes -110, ahora más separado
+SCORE_Y = HEIGHT//2 - 140  # antes -110, ahora mas separado
 
 score_label = turtle.Turtle()
 score_label.hideturtle()
@@ -229,7 +229,7 @@ wn.onkeyrelease(stop_move_down, "Down")
 wn.onkeypress(exit_game, "q")
 
 # ===============================
-# INICIO Y LÓGICA PRINCIPAL DEL JUEGO CRT
+# INICIO Y LOGICA PRINCIPAL DEL JUEGO CRT
 # ===============================
 def reset_ball(direction=None):
     ball.goto(0, 0)

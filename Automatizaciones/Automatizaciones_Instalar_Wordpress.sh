@@ -1,11 +1,11 @@
 #!/bin/bash
 # ==============================================================================
 # Nombre:        Automatizaciones_Instalar_Wordpress.sh
-# Descripción:   Instalador Headless de WordPress para Ubuntu 24.04 LTS.
-# Autor:         Alejandro Suárez (@alexsf93)
-# Versión:       1.0
+# Descripcion:   Instalador Headless de WordPress para Ubuntu 24.04 LTS.
+# Autor:         Alejandro Suarez (@alexsf93)
+# Version:       1.0
 # Uso:           ./Automatizaciones_Instalar_Wordpress.sh [params...]
-# Notas:         Instala LAMP stack y WordPress. Configura base de datos automáticamente.
+# Notas:         Instala LAMP stack y WordPress. Configura base de datos automaticamente.
 # ==============================================================================
 
 set -euo pipefail
@@ -56,7 +56,7 @@ sed -i "s/database_name_here/${WP_DB}/" wp-config.php
 sed -i "s/username_here/${WP_USER}/" wp-config.php
 sed -i "s/password_here/${WP_PASS}/" wp-config.php
 
-# --- Añade claves secretas únicas ---
+# --- Anade claves secretas unicas ---
 SALT=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
 sed -i "/AUTH_KEY/d;/SECURE_AUTH_KEY/d;/LOGGED_IN_KEY/d;/NONCE_KEY/d;/AUTH_SALT/d;/SECURE_AUTH_SALT/d;/LOGGED_IN_SALT/d;/NONCE_SALT/d" wp-config.php
 echo "$SALT" >> wp-config.php
@@ -73,13 +73,13 @@ ln -sf /usr/local/bin/wp /usr/bin/wp
 # --- Instala WordPress (headless, sin wizard web) ---
 cd /var/www/html
 
-# Espera a que MySQL esté activo
+# Espera a que MySQL este activo
 for i in {1..10}; do
     sudo -u www-data wp core is-installed --allow-root && break
     sleep 3
 done
 
-# Solo instala si no está instalado aún
+# Solo instala si no esta instalado aun
 if ! sudo -u www-data wp core is-installed --allow-root; then
   sudo -u www-data wp core install --url="${SITE_URL}" --title="WordPress Demo" --admin_user="${WP_ADMIN}" --admin_password="${WP_ADMIN_PASS}" --admin_email="${WP_ADMIN_MAIL}" --skip-email --allow-root
 fi
@@ -87,7 +87,7 @@ fi
 # --- Reinicia Apache ---
 systemctl restart apache2
 
-# --- (Opcional) Actualización no atendida ---
+# --- (Opcional) Actualizacion no atendida ---
 unattended-upgrade -d || true
 
 echo "WordPress instalado correctamente en /var/www/html"

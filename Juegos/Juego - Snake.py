@@ -47,7 +47,7 @@ Versión:  1.0
 import turtle
 import random
 
-# ---- CONFIGURACIÓN CRT ----
+# ---- CONFIGURACION CRT ----
 BG_COLOR = "black"
 HEAD_COLOR = "#39FF14"
 BODY_COLOR = "#00D700"
@@ -65,7 +65,7 @@ MAX_LIVES = 5
 game_state = "game"
 segments = []
 
-# Área jugable (más baja para no pisar encabezados)
+# Area jugable (mas baja para no pisar encabezados)
 GAME_LEFT = -180
 GAME_RIGHT = 180
 GAME_TOP = 80     # suficiente margen debajo de los textos
@@ -87,7 +87,7 @@ wn.bgcolor(BG_COLOR)
 wn.setup(width=600, height=600)
 wn.tracer(0)
 
-# --- Dibuja el borde del área jugable ---
+# --- Dibuja el borde del area jugable ---
 border = turtle.Turtle()
 border.hideturtle()
 border.penup()
@@ -131,7 +131,7 @@ timer_pen.hideturtle()
 timer_pen.penup()
 timer_pen.color(SCORE_COLOR)
 
-# --- NUEVO: Lápiz para el mensaje de inicio ---
+# --- NUEVO: Lapiz para el mensaje de inicio ---
 start_pen = turtle.Turtle()
 start_pen.hideturtle()
 start_pen.penup()
@@ -283,7 +283,7 @@ def start_game():
     update_info()
     game_state = "game"
     set_game_controls()
-    # ¡NO LLAMES A game_loop() AQUÍ!
+    # ¡NO LLAMES A game_loop() AQUI!
 
 def handle_death():
     global lives, score, game_state
@@ -363,7 +363,7 @@ def game_loop():
 
     wn.update()
 
-    # COLISIONES (colisión estricta con muro)
+    # COLISIONES (colision estricta con muro)
     collision = False
     if not (GAME_LEFT+20 <= head.xcor() <= GAME_RIGHT-20 and GAME_BOTTOM+20 <= head.ycor() <= GAME_TOP-20):
         collision = True

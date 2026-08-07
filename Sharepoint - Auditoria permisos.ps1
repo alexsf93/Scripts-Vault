@@ -41,8 +41,8 @@
 
 .NOTES
     Nombre:   Sharepoint - Auditoria permisos.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  3.6.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  3.6.0
     Fecha:    2026-08-07
 #>
 
@@ -107,7 +107,7 @@ Write-Host "  - Subsitio: Sitio secundario dentro de un sitio principal." -Foreg
 Write-Host "  - Carpetas únicas: Carpetas o bibliotecas donde se han personalizado los permisos." -ForegroundColor Gray
 Write-Host "-------------------------------------------------------------------------" -ForegroundColor DarkGray
 
-# PASO 1: Conexión con Microsoft Graph
+# PASO 1: Conexion con Microsoft Graph
 Write-StepHeader -StepNumber 1 -TotalSteps 6 -Title "Conexión con Microsoft Graph API"
 
 try {
@@ -182,7 +182,7 @@ function Invoke-GraphRequestWithRetry {
     }
 }
 
-# Detección dinámica del hostname de SharePoint
+# Deteccion dinamica del hostname de SharePoint
 $tenantHostName = "contoso.sharepoint.com"
 try {
     $rootSiteRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/root"
@@ -201,7 +201,7 @@ try {
     }
 }
 
-# Paginación Graph API usando reintentos
+# Paginacion Graph API usando reintentos
 function Invoke-GraphPaginatedRequest {
     param(
         [string]$Uri
@@ -257,7 +257,7 @@ function Get-FriendlyActionName {
     }
 }
 
-# Clasificación de Sitio Principal vs Subsitio
+# Clasificacion de Sitio Principal vs Subsitio
 function Get-SiteClassification {
     param(
         [string]$WebUrl,
@@ -302,7 +302,7 @@ function Get-SiteClassification {
     }
 }
 
-# Escaneo recursivo de carpetas dentro de una biblioteca con permisos únicos (ruptura de herencia)
+# Escaneo recursivo de carpetas dentro de una biblioteca con permisos unicos (ruptura de herencia)
 function Get-DriveFoldersWithUniquePermissions {
     param(
         [string]$SiteId,
@@ -601,13 +601,83 @@ function Export-PermissionsToHtml {
         :root {
             --bg-main: #0f172a;
             --bg-card: #1e293b;
+            --bg-header: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+            --bg-site-header: #1e1b4b;
+            --bg-table-header: #111827;
             --bg-table-hover: #334155;
+            --bg-input: #0f172a;
+            --bg-details: #0f172a;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
+            --text-heading: #ffffff;
+            --text-user-name: #f8fafc;
+            --text-link: #38bdf8;
             --border-color: #334155;
+            --border-header: #3730a3;
             --accent-cyan: #06b6d4;
             --accent-indigo: #6366f1;
+            --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.3);
+
+            /* Badges Dark Mode */
+            --badge-teams-bg: rgba(99, 102, 241, 0.2); --badge-teams-txt: #a5b4fc; --badge-teams-border: rgba(99, 102, 241, 0.4);
+            --badge-comm-bg: rgba(20, 184, 166, 0.2); --badge-comm-txt: #5eead4; --badge-comm-border: rgba(20, 184, 166, 0.4);
+            --badge-subsite-bg: rgba(245, 158, 11, 0.2); --badge-subsite-txt: #fde047; --badge-subsite-border: rgba(245, 158, 11, 0.4);
+            --badge-folder-bg: rgba(249, 115, 22, 0.2); --badge-folder-txt: #fdba74; --badge-folder-border: rgba(249, 115, 22, 0.4);
+
+            --badge-owner-bg: rgba(239, 68, 68, 0.2); --badge-owner-txt: #fca5a5; --badge-owner-border: rgba(239, 68, 68, 0.4);
+            --badge-write-bg: rgba(245, 158, 11, 0.2); --badge-write-txt: #fde047; --badge-write-border: rgba(245, 158, 11, 0.4);
+            --badge-read-bg: rgba(34, 197, 94, 0.2); --badge-read-txt: #86efac; --badge-read-border: rgba(34, 197, 94, 0.4);
+            --badge-generic-bg: rgba(148, 163, 184, 0.15); --badge-generic-txt: #cbd5e1; --badge-generic-border: rgba(148, 163, 184, 0.3);
+
+            --badge-inherited-bg: rgba(6, 182, 212, 0.15); --badge-inherited-txt: #67e8f9; --badge-inherited-border: rgba(6, 182, 212, 0.3);
+            --badge-unique-bg: rgba(245, 158, 11, 0.15); --badge-unique-txt: #fde047; --badge-unique-border: rgba(245, 158, 11, 0.3);
+
+            --badge-user-bg: rgba(99, 102, 241, 0.15); --badge-user-txt: #a5b4fc;
+            --badge-entragroup-bg: rgba(168, 85, 247, 0.15); --badge-entragroup-txt: #d8b4fe;
+            --badge-spgroup-bg: rgba(236, 72, 153, 0.15); --badge-spgroup-txt: #f472b6;
+            --badge-app-bg: rgba(20, 184, 166, 0.15); --badge-app-txt: #5eead4;
         }
+
+        [data-theme="light"] {
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-header: linear-gradient(135deg, #e0e7ff 0%, #ffffff 100%);
+            --bg-site-header: #f1f5f9;
+            --bg-table-header: #f8fafc;
+            --bg-table-hover: #f1f5f9;
+            --bg-input: #ffffff;
+            --bg-details: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-heading: #1e1b4b;
+            --text-user-name: #0f172a;
+            --text-link: #0284c7;
+            --border-color: #e2e8f0;
+            --border-header: #c7d2fe;
+            --accent-cyan: #0284c7;
+            --accent-indigo: #4f46e5;
+            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.06);
+
+            /* Badges Light Mode */
+            --badge-teams-bg: #e0e7ff; --badge-teams-txt: #3730a3; --badge-teams-border: #c7d2fe;
+            --badge-comm-bg: #ccfbf1; --badge-comm-txt: #0f766e; --badge-comm-border: #99f6e4;
+            --badge-subsite-bg: #fef3c7; --badge-subsite-txt: #b45309; --badge-subsite-border: #fde68a;
+            --badge-folder-bg: #ffedd5; --badge-folder-txt: #c2410c; --badge-folder-border: #fed7aa;
+
+            --badge-owner-bg: #fee2e2; --badge-owner-txt: #b91c1c; --badge-owner-border: #fca5a5;
+            --badge-write-bg: #fef3c7; --badge-write-txt: #b45309; --badge-write-border: #fde68a;
+            --badge-read-bg: #dcfce7; --badge-read-txt: #15803d; --badge-read-border: #86efac;
+            --badge-generic-bg: #f1f5f9; --badge-generic-txt: #334155; --badge-generic-border: #cbd5e1;
+
+            --badge-inherited-bg: #e0f2fe; --badge-inherited-txt: #0369a1; --badge-inherited-border: #bae6fd;
+            --badge-unique-bg: #fef3c7; --badge-unique-txt: #b45309; --badge-unique-border: #fde68a;
+
+            --badge-user-bg: #e0e7ff; --badge-user-txt: #3730a3;
+            --badge-entragroup-bg: #f3e8ff; --badge-entragroup-txt: #7e22ce;
+            --badge-spgroup-bg: #fce7f3; --badge-spgroup-txt: #be185d;
+            --badge-app-bg: #ccfbf1; --badge-app-txt: #0f766e;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', sans-serif;
@@ -615,11 +685,12 @@ function Export-PermissionsToHtml {
             color: var(--text-primary);
             padding: 30px 20px;
             line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         .container { max-width: 1400px; margin: 0 auto; }
         .header {
-            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
-            border: 1px solid #3730a3;
+            background: var(--bg-header);
+            border: 1px solid var(--border-header);
             border-radius: 16px;
             padding: 24px 32px;
             margin-bottom: 20px;
@@ -628,24 +699,26 @@ function Export-PermissionsToHtml {
             align-items: center;
             flex-wrap: wrap;
             gap: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--shadow-card);
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
-        .header h1 { font-size: 1.6rem; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+        .header h1 { font-size: 1.6rem; font-weight: 700; color: var(--text-heading); margin-bottom: 6px; }
         .header p { color: var(--text-secondary); font-size: 0.9rem; }
         .header-meta { text-align: right; font-size: 0.85rem; color: var(--text-secondary); }
         .header-meta span { color: var(--accent-cyan); font-weight: 600; }
         
         .info-banner {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid #334155;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-left: 4px solid var(--accent-cyan);
             border-radius: 12px;
             padding: 16px 20px;
             margin-bottom: 24px;
             font-size: 0.88rem;
-            color: #cbd5e1;
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-        .info-banner strong { color: #ffffff; }
+        .info-banner strong { color: var(--text-heading); }
 
         .metrics-grid {
             display: grid;
@@ -658,10 +731,11 @@ function Export-PermissionsToHtml {
             border: 1px solid var(--border-color);
             border-radius: 14px;
             padding: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: var(--shadow-card);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         .metric-card .title { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-        .metric-card .value { font-size: 1.8rem; font-weight: 700; color: #ffffff; margin-top: 6px; }
+        .metric-card .value { font-size: 1.8rem; font-weight: 700; color: var(--text-heading); margin-top: 6px; }
         .metric-card .subtext { font-size: 0.75rem; color: var(--accent-cyan); margin-top: 4px; }
 
         .toolbar {
@@ -675,24 +749,54 @@ function Export-PermissionsToHtml {
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-        .search-box { flex: 1; min-width: 280px; }
+        .toolbar-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex: 1;
+            justify-content: flex-end;
+            min-width: 300px;
+        }
+        .search-box { flex: 1; min-width: 220px; max-width: 450px; }
         .search-box input {
             width: 100%;
             padding: 10px 16px;
-            background: #0f172a;
+            background: var(--bg-input);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            color: #fff;
+            color: var(--text-primary);
             font-size: 0.9rem;
             outline: none;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         .search-box input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2); }
 
+        .theme-toggle-btn {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+        }
+
         .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
         .tab-btn {
-            background: #0f172a;
+            background: var(--bg-input);
             color: var(--text-secondary);
             border: 1px solid var(--border-color);
             padding: 8px 16px;
@@ -700,7 +804,7 @@ function Export-PermissionsToHtml {
             font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         .tab-btn.active, .tab-btn:hover {
             background: var(--accent-indigo);
@@ -714,10 +818,11 @@ function Export-PermissionsToHtml {
             border-radius: 16px;
             margin-bottom: 24px;
             overflow: hidden;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            box-shadow: var(--shadow-card);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         .site-header {
-            background: #1e1b4b;
+            background: var(--bg-site-header);
             border-bottom: 1px solid var(--border-color);
             padding: 18px 24px;
             display: flex;
@@ -725,16 +830,17 @@ function Export-PermissionsToHtml {
             align-items: center;
             flex-wrap: wrap;
             gap: 12px;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         .site-title-row { display: flex; align-items: center; gap: 12px; }
-        .site-title { font-size: 1.2rem; font-weight: 700; color: #ffffff; }
-        .site-url-link { font-size: 0.85rem; color: #38bdf8; text-decoration: none; display: block; margin-top: 4px; }
+        .site-title { font-size: 1.2rem; font-weight: 700; color: var(--text-heading); }
+        .site-url-link { font-size: 0.85rem; color: var(--text-link); text-decoration: none; display: block; margin-top: 4px; }
         .site-url-link:hover { text-decoration: underline; }
 
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th {
-            background: #111827;
+            background: var(--bg-table-header);
             padding: 12px 18px;
             font-size: 0.75rem;
             font-weight: 600;
@@ -742,12 +848,13 @@ function Export-PermissionsToHtml {
             color: var(--text-secondary);
             border-bottom: 1px solid var(--border-color);
             letter-spacing: 0.5px;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
-        td { padding: 12px 18px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; vertical-align: top; }
+        td { padding: 12px 18px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; vertical-align: top; color: var(--text-primary); }
         tr:hover { background-color: var(--bg-table-hover); }
 
         .user-cell { display: flex; flex-direction: column; }
-        .user-name { font-weight: 600; color: #f8fafc; }
+        .user-name { font-weight: 600; color: var(--text-user-name); }
         .user-email { font-size: 0.75rem; color: var(--text-secondary); }
 
         .badge {
@@ -756,30 +863,32 @@ function Export-PermissionsToHtml {
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
+            transition: all 0.3s ease;
         }
-        .badge-teams-site { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
-        .badge-comm-site { background: rgba(20, 184, 166, 0.2); color: #5eead4; border: 1px solid rgba(20, 184, 166, 0.4); }
-        .badge-subsite { background: rgba(245, 158, 11, 0.2); color: #fde047; border: 1px solid rgba(245, 158, 11, 0.4); }
-        .badge-folder { background: rgba(249, 115, 22, 0.2); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.4); }
+        .badge-teams-site { background: var(--badge-teams-bg); color: var(--badge-teams-txt); border: 1px solid var(--badge-teams-border); }
+        .badge-comm-site { background: var(--badge-comm-bg); color: var(--badge-comm-txt); border: 1px solid var(--badge-comm-border); }
+        .badge-subsite { background: var(--badge-subsite-bg); color: var(--badge-subsite-txt); border: 1px solid var(--badge-subsite-border); }
+        .badge-folder { background: var(--badge-folder-bg); color: var(--badge-folder-txt); border: 1px solid var(--badge-folder-border); }
 
-        .badge-owner { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
-        .badge-write { background: rgba(245, 158, 11, 0.2); color: #fde047; border: 1px solid rgba(245, 158, 11, 0.4); }
-        .badge-read { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
-        .badge-generic { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+        .badge-owner { background: var(--badge-owner-bg); color: var(--badge-owner-txt); border: 1px solid var(--badge-owner-border); }
+        .badge-write { background: var(--badge-write-bg); color: var(--badge-write-txt); border: 1px solid var(--badge-write-border); }
+        .badge-read { background: var(--badge-read-bg); color: var(--badge-read-txt); border: 1px solid var(--badge-read-border); }
+        .badge-generic { background: var(--badge-generic-bg); color: var(--badge-generic-txt); border: 1px solid var(--badge-generic-border); }
 
-        .badge-inherited { background: rgba(6, 182, 212, 0.15); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.3); }
-        .badge-unique { background: rgba(245, 158, 11, 0.15); color: #fde047; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-inherited { background: var(--badge-inherited-bg); color: var(--badge-inherited-txt); border: 1px solid var(--badge-inherited-border); }
+        .badge-unique { background: var(--badge-unique-bg); color: var(--badge-unique-txt); border: 1px solid var(--badge-unique-border); }
 
-        .badge-user { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
-        .badge-entragroup { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; }
-        .badge-spgroup { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
-        .badge-app { background: rgba(20, 184, 166, 0.15); color: #5eead4; }
+        .badge-user { background: var(--badge-user-bg); color: var(--badge-user-txt); }
+        .badge-entragroup { background: var(--badge-entragroup-bg); color: var(--badge-entragroup-txt); }
+        .badge-spgroup { background: var(--badge-spgroup-bg); color: var(--badge-spgroup-txt); }
+        .badge-app { background: var(--badge-app-bg); color: var(--badge-app-txt); }
 
         .user-access-details {
-            background: #0f172a;
+            background: var(--bg-details);
             border: 1px solid var(--border-color);
             border-radius: 10px;
             padding: 8px 12px;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         .user-access-summary {
             cursor: pointer;
@@ -793,12 +902,12 @@ function Export-PermissionsToHtml {
             outline: none;
         }
         .user-access-summary:hover {
-            color: #ffffff;
+            color: var(--text-heading);
         }
         .view-more-link {
             margin-left: auto;
             font-size: 0.78rem;
-            color: #38bdf8;
+            color: var(--text-link);
             text-decoration: underline;
         }
         .access-items-list {
@@ -812,8 +921,8 @@ function Export-PermissionsToHtml {
         .access-items-list li {
             padding: 6px 4px;
             font-size: 0.8rem;
-            color: #e2e8f0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -830,12 +939,12 @@ function Export-PermissionsToHtml {
             gap: 8px;
         }
         .access-item-name {
-            color: #f1f5f9;
+            color: var(--text-primary);
         }
 
         .text-subtle { font-size: 0.8rem; color: var(--text-secondary); }
         .view-section { margin-bottom: 32px; }
-        .section-title { font-size: 1.3rem; font-weight: 700; color: #ffffff; margin-bottom: 16px; border-left: 4px solid var(--accent-cyan); padding-left: 12px; }
+        .section-title { font-size: 1.3rem; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; border-left: 4px solid var(--accent-cyan); padding-left: 12px; }
         .footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: var(--text-secondary); }
     </style>
 </head>
@@ -900,8 +1009,13 @@ function Export-PermissionsToHtml {
                 <button class="tab-btn" onclick="filterCategory('folder', event)">Carpetas únicas ($FoldersCount)</button>
                 <button class="tab-btn" onclick="filterCategory('teams', event)">Equipos Teams ($TeamSitesCount)</button>
             </div>
-            <div class="search-box">
-                <input type="text" id="tableSearch" placeholder="Buscar usuario, correo, sitio o carpeta..." onkeyup="searchSites()">
+            <div class="toolbar-controls">
+                <div class="search-box">
+                    <input type="text" id="tableSearch" placeholder="Buscar usuario, correo, sitio o carpeta..." onkeyup="searchSites()">
+                </div>
+                <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="Cambiar tema de color">
+                    <span id="themeIcon">☀️</span> <span id="themeText">Modo Claro</span>
+                </button>
             </div>
         </div>
 
@@ -942,6 +1056,38 @@ function Export-PermissionsToHtml {
 
     <script>
         var currentFilter = 'all';
+
+        function toggleTheme() {
+            var currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            var newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            try {
+                localStorage.setItem('spo_audit_theme', theme);
+            } catch (e) {}
+
+            var themeIcon = document.getElementById('themeIcon');
+            var themeText = document.getElementById('themeText');
+            if (theme === 'light') {
+                if (themeIcon) themeIcon.textContent = '🌙';
+                if (themeText) themeText.textContent = 'Modo Oscuro';
+            } else {
+                if (themeIcon) themeIcon.textContent = '☀️';
+                if (themeText) themeText.textContent = 'Modo Claro';
+            }
+        }
+
+        // Cargar preferencia guardada o por defecto
+        (function() {
+            var savedTheme = 'dark';
+            try {
+                savedTheme = localStorage.getItem('spo_audit_theme') || 'dark';
+            } catch (e) {}
+            setTheme(savedTheme);
+        })();
 
         function switchView(viewName, event) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -1023,7 +1169,7 @@ $allSitesRaw = [System.Collections.Generic.List[PSObject]]::new()
 $m365GroupUrls = @{}
 $m365GroupIdMap = @{}
 
-# A. Si se proporcionó parámetro -SiteUrl / -SiteName, intentar resolución directa primero
+# A. Si se proporciono parametro -SiteUrl / -SiteName, intentar resolucion directa primero
 $targetSiteFilter = if ($SiteUrl) { $SiteUrl } elseif ($SiteName) { $SiteName } else { "" }
 if ($targetSiteFilter) {
     Write-StatusMsg -Message "Filtro indicado por parámetro: '$targetSiteFilter'" -Status "INFO"
@@ -1051,7 +1197,7 @@ if ($targetSiteFilter) {
     }
 }
 
-# B. Consultar la API de búsqueda de Graph iterando por letras y palabras clave
+# B. Consultar la API de busqueda de Graph iterando por letras y palabras clave
 Write-StatusMsg -Message "Consultando el catálogo exhaustivo de sitios..." -Status "WORKING"
 $searchTerms = 97..122 | ForEach-Object { [char]$_ }
 $searchTerms += 0..9 | ForEach-Object { [string]$_ }
@@ -1103,7 +1249,7 @@ try {
     }
 } catch {}
 
-# D. Resolución directa de rutas conocidas del tenant
+# D. Resolucion directa de rutas conocidas del tenant
 $knownSitePaths = @("rrhh", "test", "administracion", "msteams_f72f18_083716")
 foreach ($path in $knownSitePaths) {
     try {
@@ -1114,7 +1260,7 @@ foreach ($path in $knownSitePaths) {
     } catch {}
 }
 
-# E. Fallback a getAllSites (acceso de aplicación)
+# E. Fallback a getAllSites (acceso de aplicacion)
 try {
     $sitesAll = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/getAllSites"
     if ($sitesAll) {
@@ -1122,7 +1268,7 @@ try {
     }
 } catch {}
 
-# F. Incluir sitio raíz del tenant
+# F. Incluir sitio raiz del tenant
 try {
     $rootSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/root"
     if ($rootSite -and $rootSite.id) { $allSitesRaw.Add($rootSite) }
@@ -1180,14 +1326,14 @@ foreach ($s in $uniqueSites) {
     }
 }
 
-# Ordenar por título
+# Ordenar por titulo
 $sortedSites = $generalSitesList | Sort-Object -Property Title
 $generalSitesList = [System.Collections.Generic.List[PSCustomObject]]::new()
 foreach ($s in $sortedSites) { $generalSitesList.Add($s) }
 
 Write-StatusMsg -Message "Se han encontrado $($generalSitesList.Count) sitios principales." -Status "SUCCESS"
 
-# PASO 3: Selección del sitio objetivo
+# PASO 3: Seleccion del sitio objetivo
 Write-StepHeader -StepNumber 3 -TotalSteps 6 -Title "Selección del sitio a auditar"
 
 $selectedGeneralSites = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -1221,7 +1367,7 @@ if ($targetSiteFilter) {
         Write-StatusMsg -Message "Modo no interactivo detectado. Seleccionando la opción de auditar todos los sitios." -Status "INFO"
         foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
     } else {
-        # MENÚ INTERACTIVO SENCILLO, ALINEADO Y PROFESIONAL
+        # MENU INTERACTIVO SENCILLO, ALINEADO Y PROFESIONAL
         Write-Host "`n--------------------------------------------------------------------------------------------------------" -ForegroundColor Cyan
         Write-Host " Sitios disponibles en el tenant" -ForegroundColor White
         Write-Host "--------------------------------------------------------------------------------------------------------" -ForegroundColor Cyan
@@ -1271,7 +1417,7 @@ if ($targetSiteFilter) {
     }
 }
 
-# PASO 4: Búsqueda de subsitios
+# PASO 4: Busqueda de subsitios
 Write-StepHeader -StepNumber 4 -TotalSteps 6 -Title "Búsqueda de subsitios"
 
 Write-StatusMsg -Message "Buscando subsitios en los sitios seleccionados..." -Status "WORKING"
@@ -1350,7 +1496,7 @@ while ($subsiteQueue.Count -gt 0) {
     }
 }
 
-# PASO 5: Búsqueda de carpetas con permisos únicos
+# PASO 5: Busqueda de carpetas con permisos unicos
 Write-StepHeader -StepNumber 5 -TotalSteps 6 -Title "Búsqueda de carpetas con permisos propios"
 
 Write-StatusMsg -Message "Comprobando bibliotecas y carpetas con permisos personalizados..." -Status "WORKING"
@@ -1375,7 +1521,7 @@ foreach ($site in $sitesToScanDrives) {
 
 Write-StatusMsg -Message "Total de espacios a auditar (sitios, subsitios y carpetas): $($script:finalAuditedSites.Count)" -Status "SUCCESS"
 
-# PASO 6: Análisis de permisos por usuario y grupo
+# PASO 6: Analisis de permisos por usuario y grupo
 Write-StepHeader -StepNumber 6 -TotalSteps 6 -Title "Análisis de permisos de usuarios y grupos"
 
 $permissionReport = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -1389,7 +1535,7 @@ foreach ($site in $script:finalAuditedSites) {
     Write-Host "  [$siteIndex/$($script:finalAuditedSites.Count)] ($percent%) Auditando: $($site.Title) -> $($site.WebUrl)" -ForegroundColor Gray
 
     try {
-        # Si es una carpeta con permisos únicos ya detectada, procesar sus permisos directamente
+        # Si es una carpeta con permisos unicos ya detectada, procesar sus permisos directamente
         if ($site.IsFolder -and $site.RawPerms) {
             foreach ($perm in $site.RawPerms) {
                 $roles = if ($perm.roles) { $perm.roles -join ", " } else { "Acceso generico" }
@@ -1490,7 +1636,7 @@ foreach ($site in $script:finalAuditedSites) {
             Write-Verbose "Error al obtener siteGroups para $($site.WebUrl): $($_.Exception.Message)"
         }
 
-        # B. Extraer administradores de la colección de sitios (Site Collection Admins)
+        # B. Extraer administradores de la coleccion de sitios (Site Collection Admins)
         try {
             $adminsRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$($site.Id)/siteCollection/admins"
             if ($adminsRes -and $adminsRes.value) {

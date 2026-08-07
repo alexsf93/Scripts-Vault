@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Caches & Environment
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output Logs
+*.log

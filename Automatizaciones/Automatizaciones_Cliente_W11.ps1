@@ -1,25 +1,25 @@
 <#
 .SYNOPSIS
-    Configuración automática de VM Windows 11.
+    Configuracion automatica de VM Windows 11.
 
 .DESCRIPTION
-    Configuración automática de VM Windows 11:
-    - Región, zona horaria (Madrid) y teclado español (ES).
-    - Instalación de software básico (Notepad++, 7-Zip).
-    - Limpieza del sistema y eliminación de bloatware.
-    - Configuración de Windows Update y Storage Sense.
+    Configuracion automatica de VM Windows 11:
+    - Region, zona horaria (Madrid) y teclado espanol (ES).
+    - Instalacion de software basico (Notepad++, 7-Zip).
+    - Limpieza del sistema y eliminacion de bloatware.
+    - Configuracion de Windows Update y Storage Sense.
 
 .PARAMETER NoParameter
-    Este script no requiere parámetros.
+    Este script no requiere parametros.
 
 .EXAMPLE
     .\Automatizaciones_Cliente_W11.ps1
-    Ejecuta la configuración automática y reinicia el equipo.
+    Ejecuta la configuracion automatica y reinicia el equipo.
 
 .NOTES
     Nombre:   Automatizaciones_Cliente_W11.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
     Requisitos: Ejecutar como Administrador.
 #>
 
@@ -27,7 +27,7 @@
 # --------- ZONA HORARIA (Madrid) ---------
 Set-TimeZone -Id "Romance Standard Time"
 
-# --------- TECLADO ESPAÑOL (España) ---------
+# --------- TECLADO ESPANOL (Espana) ---------
 $LangList = Get-WinUserLanguageList
 $LangList[0].InputMethodTips.Clear()
 $LangList[0].InputMethodTips.Add("040a:0000040a")
@@ -48,7 +48,7 @@ catch {
 
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" -Name "RestartForFeatureUpdatesEnabled" -Value 1 -Type DWord
 
-# --------- INSTALACIÓN DE SOFTWARE BÁSICO (Notepad++ y 7-Zip) ---------
+# --------- INSTALACION DE SOFTWARE BASICO (Notepad++ y 7-Zip) ---------
 # Instala 7-Zip
 Invoke-WebRequest -Uri "https://www.7-zip.org/a/7z2301-x64.exe" -OutFile "$env:TEMP\7z.exe"
 Start-Process "$env:TEMP\7z.exe" -ArgumentList "/S" -Wait
@@ -62,7 +62,7 @@ Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyConti
 Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
 wevtutil el | Foreach-Object { wevtutil cl "$_" } 2>$null
 
-# --------- HABILITAR STORAGE SENSE (Limpiador automático) ---------
+# --------- HABILITAR STORAGE SENSE (Limpiador automatico) ---------
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "01" -Value 1 -Type DWord
 Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "08" -Value 30 -Type DWord
 Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "32" -Value 30 -Type DWord

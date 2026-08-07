@@ -78,7 +78,7 @@ LIVES_INIT = 3
 LIVES_MAX = 5
 
 # ===============================
-# INICIALIZACIÓN VENTANA CRT
+# INICIALIZACION VENTANA CRT
 # ===============================
 wn = turtle.Screen()
 wn.title("A R K A N O I D   RETRO CRT")
@@ -280,7 +280,7 @@ def v_pattern():
     return pattern
 
 def grid_pattern():
-    # Cuadrícula tipo tablero de ajedrez más densa
+    # Cuadricula tipo tablero de ajedrez mas densa
     rows, cols = BLOCK_ROWS, BLOCK_COLS
     pattern = []
     for r in range(rows):
@@ -294,7 +294,7 @@ def grid_pattern():
     return pattern
 
 def honeycomb_pattern():
-    # Simulación de hexágonos
+    # Simulacion de hexagonos
     rows, cols = BLOCK_ROWS, BLOCK_COLS
     pattern = []
     for r in range(rows):
@@ -366,7 +366,7 @@ blocks = []
 def setup_blocks(randomize=True):
     global blocks
     blocks = []
-    # Elige patrón de nivel
+    # Elige patron de nivel
     if randomize:
         pattern = random.choice(PATTERN_LIST)()
     else:
@@ -375,7 +375,7 @@ def setup_blocks(randomize=True):
     cols = len(pattern[0])
     start_x = -cols//2 * BLOCK_W + BLOCK_W//2
     y = BLOCK_START_Y
-    # --- Elegimos aleatoriamente qué bloques tendrán power-up ---
+    # --- Elegimos aleatoriamente que bloques tendran power-up ---
     block_positions = []
     for r, row in enumerate(pattern):
         for c, present in enumerate(row):
@@ -551,7 +551,7 @@ def remove_multi_ball():
         multi_ball.hideturtle()
         multi_ball = None
 
-# --- LÓGICA DEL JUEGO ---
+# --- LOGICA DEL JUEGO ---
 ball_speed_counter = 0
 
 def reset_ball_paddle(resume_game=True):
@@ -736,7 +736,7 @@ welcome_pen.goto(0, -65)
 welcome_pen.color(CRT_YELLOW)
 welcome_pen.write("Pulsa cualquier tecla para empezar", align="center", font=("Courier", 20, "bold"))
 
-# --- Función para iniciar el juego ---
+# --- Funcion para iniciar el juego ---
 def start_game_from_welcome():
     welcome_box.clear()
     welcome_pen.clear()

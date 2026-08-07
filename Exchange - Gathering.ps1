@@ -3,12 +3,12 @@
     Exchange Online - Informe Detallado de Buzones
 
 .DESCRIPTION
-    Este script se conecta a Exchange Online y obtiene información detallada de todos los buzones de usuario, excluyendo buzones de sistema.
-    Permite buscar un buzón concreto con -User o mostrar todos los buzones.
-    Presenta los datos en una tabla interactiva (Out-GridView) para buscar, ordenar y filtrar fácilmente.
+    Este script se conecta a Exchange Online y obtiene informacion detallada de todos los buzones de usuario, excluyendo buzones de sistema.
+    Permite buscar un buzon concreto con -User o mostrar todos los buzones.
+    Presenta los datos en una tabla interactiva (Out-GridView) para buscar, ordenar y filtrar facilmente.
 
 .PARAMETER User
-    Nombre del usuario (UPN) para filtrar un buzón específico. Si se omite, se muestran todos.
+    Nombre del usuario (UPN) para filtrar un buzon especifico. Si se omite, se muestran todos.
 
 .EXAMPLE
     .\Exchange-Gathering.ps1
@@ -16,12 +16,12 @@
 
 .EXAMPLE
     .\Exchange-Gathering.ps1 -User usuario@dominio.com
-    Muestra sólo el buzón del usuario especificado.
+    Muestra solo el buzon del usuario especificado.
 
 .NOTES
     Nombre:   Exchange - Gathering.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
 #>
 
 param(

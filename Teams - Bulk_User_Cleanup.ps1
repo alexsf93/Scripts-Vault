@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Microsoft Teams - Eliminación Masiva de Usuarios.
+    Microsoft Teams - Eliminacion Masiva de Usuarios.
 
 .DESCRIPTION
-    Este script elimina usuarios de un equipo de Microsoft Teams basándose en su rol (Invitados, Miembros, o Ambos).
-    Soporta filtrado por dominio, exclusión automática de propietarios y generación de logs.
+    Este script elimina usuarios de un equipo de Microsoft Teams basandose en su rol (Invitados, Miembros, o Ambos).
+    Soporta filtrado por dominio, exclusion automatica de propietarios y generacion de logs.
 
 .PARAMETER TeamName
     Nombre del equipo de Teams.
@@ -25,8 +25,8 @@
 
 .NOTES
     Nombre:   Teams - Bulk_User_Cleanup.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
@@ -52,7 +52,7 @@ if ($Domain) {
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 
 # ---------------------------------------------------------
-# 1. Conexión a Microsoft Teams
+# 1. Conexion a Microsoft Teams
 # ---------------------------------------------------------
 if (-not (Get-Module -ListAvailable -Name MicrosoftTeams)) {
     Install-Module MicrosoftTeams -Scope CurrentUser -Force
@@ -89,7 +89,7 @@ catch {
 Write-Host "Analizando miembros del equipo (esto puede tardar)..." -ForegroundColor Cyan
 $members = Get-TeamUser -GroupId $team.GroupId
 
-# Filtrado según TargetRole
+# Filtrado segun TargetRole
 switch ($TargetRole) {
     'Guest' { $usersToCheck = $members | Where-Object { $_.Role -eq "Guest" } }
     'Member' { 
@@ -112,9 +112,9 @@ if (-not $usersToCheck) {
 # ---------------------------------------------------------
 $targets = @()
 
-# Aplicar filtro de dominio si se especificó
+# Aplicar filtro de dominio si se especifico
 if ($Domain) {
-    # Buscar tanto formato estándar (*@dominio.com) como formato #EXT# (*_dominio.com#EXT#@*)
+    # Buscar tanto formato estandar (*@dominio.com) como formato #EXT# (*_dominio.com#EXT#@*)
     $standardPattern = "*@$Domain"
     $extPattern = "*_${Domain}#EXT#@*"
     
@@ -142,7 +142,7 @@ foreach ($u in $usersToCheck) {
 }
 
 # ---------------------------------------------------------
-# 4. Confirmación y Borrado
+# 4. Confirmacion y Borrado
 # ---------------------------------------------------------
 $count = $targets.Count
 

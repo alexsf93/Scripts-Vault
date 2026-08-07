@@ -1,11 +1,11 @@
 #!/bin/bash
 # ==============================================================================
 # Nombre:        Automatizaciones_Instalar_Grafana.sh
-# Descripción:   Instalador headless de Grafana OSS en Ubuntu 24.04 LTS.
-# Autor:         Alejandro Suárez (@alexsf93)
-# Versión:       1.0
+# Descripcion:   Instalador headless de Grafana OSS en Ubuntu 24.04 LTS.
+# Autor:         Alejandro Suarez (@alexsf93)
+# Version:       1.0
 # Uso:           ./Automatizaciones_Instalar_Grafana.sh [GRAFANA_URL]
-# Notas:         Instala dependencias, añade repositorio oficial y configura el servicio.
+# Notas:         Instala dependencias, anade repositorio oficial y configura el servicio.
 # ==============================================================================
 
 set -euo pipefail

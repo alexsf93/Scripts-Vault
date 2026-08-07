@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Script de prueba: Envío de mensaje UDP al puerto 8866 en localhost.
+    Script de prueba: Envio de mensaje UDP al puerto 8866 en localhost.
 
 .DESCRIPTION
     Este script inicia un listener UDP en el puerto especificado (por defecto 8866) para validar la
-    comunicación mediante el protocolo UDP. Es útil para pruebas de conectividad.
+    comunicacion mediante el protocolo UDP. Es util para pruebas de conectividad.
 
 .PARAMETER Port
     El puerto UDP donde escuchar. Por defecto es 8866.
@@ -19,8 +19,8 @@
 
 .NOTES
     Nombre:   Script - Listener_UDP.ps1
-    Autor:    Alejandro Suárez (@alexsf93)
-    Versión:  1.0
+    Autor:    Alejandro Suarez (@alexsf93)
+    Version:  1.0
 #>
 
 param(

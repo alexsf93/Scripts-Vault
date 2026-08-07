@@ -1,10 +1,10 @@
 #!/bin/bash
 # ==============================================================================
 # Nombre:        Automatizaciones_Instalar_Nagios.sh
-# Descripción:   Instalador Headless de Nagios Core para Ubuntu 24.04 LTS.
-# Autor:         Alejandro Suárez (@alexsf93)
-# Versión:       1.0
-# Uso:           ./Automatizaciones_Instalar_Nagios.sh [usuario] [contraseña]
+# Descripcion:   Instalador Headless de Nagios Core para Ubuntu 24.04 LTS.
+# Autor:         Alejandro Suarez (@alexsf93)
+# Version:       1.0
+# Uso:           ./Automatizaciones_Instalar_Nagios.sh [usuario] [contrasena]
 # Notas:         Compila e instala Nagios Core y Plugins. Configura acceso web.
 # ==============================================================================
 

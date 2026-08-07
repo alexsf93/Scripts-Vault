@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
 # Nombre:        Automatizaciones_Instalar_N8N.sh
-# Descripción:   Script de instalación automatizada de n8n + HTTPS.
-# Autor:         Alejandro Suárez (@alexsf93)
-# Versión:       1.0
+# Descripcion:   Script de instalacion automatizada de n8n + HTTPS.
+# Autor:         Alejandro Suarez (@alexsf93)
+# Version:       1.0
 # Uso:           ./Automatizaciones_Instalar_N8N.sh
 # Notas:         Instala Node.js, n8n, nginx y configura un reverse proxy con SSL autofirmado.
 # ==============================================================================
@@ -50,7 +50,7 @@ systemctl restart n8n
 
 echo "==== Generando certificado autofirmado para nginx ===="
 
-# Obtener la IP pública de manera fiable en Azure
+# Obtener la IP publica de manera fiable en Azure
 PUBIP=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text")
 if [ -z "$PUBIP" ]; then
   PUBIP=$(curl -s ifconfig.me)
