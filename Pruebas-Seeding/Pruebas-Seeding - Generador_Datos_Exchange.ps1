@@ -193,14 +193,12 @@ if ([string]::IsNullOrWhiteSpace($RecipientEmail)) {
 
 # Preguntar la cantidad de correos a generar si no fueron especificados por parametro CLI
 if (-not $PSBoundParameters.ContainsKey('OldMessagesCount')) {
-    $InputOld = Read-Host "`n¿Cuantos correos ANTIGUOS (>6 meses) deseas generar? [Por defecto: 10]"
-    if ($InputOld -match '^\d+$' -and [int]$InputOld -ge 0) {
-        $OldMessagesCount = [int]$InputOld
+    $InputOld = Read-Host "`nCuantos correos ANTIGUOS (>6 meses) deseas generar? [Por defecto: 10]"
+    if ([int]::TryParse($InputOld, [ref]$ParsedOld) -and $ParsedOld -ge 0) {
+        $OldMessagesCount = $ParsedOld
     }
-}
-
-if (-not $PSBoundParameters.ContainsKey('RecentMessagesCount')) {
-    $InputRecent = Read-Host "`n¿Cuantos correos RECIENTES (<3 meses) deseas generar? [Por defecto: 5]"
+    
+    $InputRecent = Read-Host "`nCuantos correos RECIENTES (<3 meses) deseas generar? [Por defecto: 5]"
     if ($InputRecent -match '^\d+$' -and [int]$InputRecent -ge 0) {
         $RecentMessagesCount = [int]$InputRecent
     }

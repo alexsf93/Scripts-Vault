@@ -1,22 +1,22 @@
 <#
 .SYNOPSIS
-    SharePoint Online - Auditoria de permisos en sitios, subsitios y carpetas con Microsoft Graph (v3.6.0)
+    SharePoint online - Auditoria de permisos en sitios, subsitios y carpetas con Microsoft graph (v3.7.0)
 
 .DESCRIPTION
-    Script de auditoria de permisos para SharePoint Online.
+    Script de auditoria de permisos para SharePoint online.
     Permite seleccionar un sitio general por pantalla o mediante parametros,
     y analiza la raiz, los subsitios y las carpetas con permisos unicos (ruptura de herencia).
-    Desglosa grupos de SharePoint, Entra ID y M365 hasta llegar a usuarios individuales.
-    Genera un informe HTML interactivo con vista de matriz por usuario organizada por desplegables y badges.
+    Desglosa grupos de SharePoint, Entra id y M365 hasta llegar a usuarios individuales.
+    Genera un informe HTML interactivo corporativo estilo Microsoft sharepoint & fluent ui con vista por sitio y matriz por usuario.
 
 .PARAMETER TenantId
     ID o dominio del tenant de Microsoft 365.
 
 .PARAMETER ClientId
-    ID de la aplicacion (App ID) de Entra ID.
+    ID de la aplicacion (App ID) de Entra id.
 
 .PARAMETER ClientSecret
-    Secreto de aplicacion (Client Secret).
+    Secreto de aplicacion (Client secret).
 
 .PARAMETER SiteUrl
     Nombre, ruta o URL del sitio a auditar (ej. "Administracion", "rrhh" o "https://contoso.sharepoint.com/sites/Administracion").
@@ -42,8 +42,8 @@
 .NOTES
     Nombre:   Microsoft 365 - SharePoint - Auditoria_Permisos.ps1
     Autor:    Alejandro Suarez (@alexsf93)
-    Version:  3.6.0
-    Fecha:    2026-08-07
+    Version:  3.7.0
+    Fecha:    2026-08-10
 #>
 
 param(
@@ -68,7 +68,7 @@ param(
 )
 
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
-    Write-Host "  [*] Instalando modulo requerido 'Microsoft.Graph.Authentication' desde PowerShell Gallery..." -ForegroundColor Yellow
+    Write-Host "  [*] Instalando modulo requerido 'Microsoft.Graph.Authentication' desde PowerShell gallery..." -ForegroundColor Yellow
     Install-Module Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 }
 Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
@@ -81,7 +81,7 @@ function Write-StepHeader {
         [string]$Title
     )
     Write-Host "`n------------------------------------------------------------------------- " -ForegroundColor Cyan
-    Write-Host " PASO ${StepNumber} de ${TotalSteps}: $Title" -ForegroundColor White
+    Write-Host " Paso ${StepNumber} de ${TotalSteps}: $Title" -ForegroundColor White
     Write-Host "------------------------------------------------------------------------- " -ForegroundColor Cyan
 }
 
@@ -103,16 +103,16 @@ function Write-StatusMsg {
 
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host " Auditoría de permisos de SPO" -ForegroundColor Cyan
+Write-Host " Auditoria de permisos de spo" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host " Nota sobre la estructura:" -ForegroundColor Yellow
-Write-Host "  - Sitio principal: Sitio independiente de nivel superior (ej. /sites/Ventas)." -ForegroundColor Gray
+Write-Host "  - Sitio principal: Sitio independiente de nivel superior (ej. /sites/ventas)." -ForegroundColor Gray
 Write-Host "  - Subsitio: Sitio secundario dentro de un sitio principal." -ForegroundColor Gray
-Write-Host "  - Carpetas únicas: Carpetas o bibliotecas donde se han personalizado los permisos." -ForegroundColor Gray
+Write-Host "  - Carpetas unicas: Carpetas o bibliotecas donde se han personalizado los permisos." -ForegroundColor Gray
 Write-Host "-------------------------------------------------------------------------" -ForegroundColor DarkGray
 
-# PASO 1: Conexion con Microsoft Graph
-Write-StepHeader -StepNumber 1 -TotalSteps 6 -Title "Conexión con Microsoft Graph API"
+# Paso 1: Conexion con Microsoft graph
+Write-StepHeader -StepNumber 1 -TotalSteps 6 -Title "Conexion con Microsoft graph api"
 
 try {
     $context = Get-MgContext -ErrorAction SilentlyContinue
@@ -122,13 +122,13 @@ try {
     }
 
     if (-not $context) {
-        Write-StatusMsg -Message "Conectando con Microsoft Graph..." -Status "WORKING"
+        Write-StatusMsg -Message "Conectando con Microsoft graph..." -Status "WORKING"
         if ($TenantId -and $ClientId -and $ClientSecret) {
-            Write-StatusMsg -Message "Autenticando con App Registration..." -Status "WORKING"
+            Write-StatusMsg -Message "Autenticando con app registration..." -Status "WORKING"
             $secSecret = ConvertTo-SecureString $ClientSecret -AsPlainText -Force
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -ClientSecret $secSecret -ErrorAction Stop
         } else {
-            Write-StatusMsg -Message "Iniciando sesión interactiva (permisos de lectura)..." -Status "WORKING"
+            Write-StatusMsg -Message "Iniciando sesion interactiva (permisos de lectura)..." -Status "WORKING"
             $requiredScopes = @(
                 "Sites.FullControl.All",
                 "Sites.Read.All",
@@ -141,11 +141,11 @@ try {
     }
     Write-StatusMsg -Message "Conectado correctamente: $($context.Account) (Tenant: $($context.TenantId))" -Status "SUCCESS"
 } catch {
-    Write-StatusMsg -Message "Error al conectar con Microsoft Graph: $($_.Exception.Message)" -Status "FAIL"
+    Write-StatusMsg -Message "Error al conectar con Microsoft graph: $($_.Exception.Message)" -Status "FAIL"
     Exit
 }
 
-# Control de Throttling y Reintentos con Exponential Backoff
+# Control de throttling y reintentos con exponential backoff
 function Invoke-GraphRequestWithRetry {
     param(
         [string]$Uri,
@@ -177,7 +177,7 @@ function Invoke-GraphRequestWithRetry {
                         $retryAfter = [int]$headerVal
                     }
                 }
-                Write-StatusMsg -Message "Límite de peticiones de Microsoft Graph alcanzado (HTTP $statusCode). Esperando $retryAfter segundos (Intento $attempt de $MaxRetries)..." -Status "WARN"
+                Write-StatusMsg -Message "Limite de peticiones de Microsoft graph alcanzado (HTTP $statusCode). Esperando $retryAfter segundos (Intento $attempt de $MaxRetries)..." -Status "WARN"
                 Start-Sleep -Seconds $retryAfter
             } else {
                 throw $_
@@ -269,7 +269,7 @@ function Get-SiteClassification {
         [bool]$IsM365Group
     )
     if ([string]::IsNullOrEmpty($WebUrl)) {
-        return @{ SiteType = "Sitio de SharePoint"; IsSubsite = $false; Category = "principal" }
+        return @{ SiteType = "Sitio de sharepoint"; IsSubsite = $false; Category = "principal" }
     }
     
     $cleanUrl = $WebUrl.TrimEnd('/')
@@ -286,16 +286,16 @@ function Get-SiteClassification {
     }
     
     if ($isSubsite) {
-        $siteType = "Subsitio de SharePoint"
+        $siteType = "Subsitio de sharepoint"
         $category = "subsite"
     } elseif ($IsM365Group -or $cleanUrl -like "*msteams*" -or $cleanUrl -like "*/sites/group*") {
-        $siteType = "Sitio de equipo (Teams / M365)"
+        $siteType = "Sitio de equipo (teams / m365)"
         $category = "teams"
     } elseif ($Title -like "*communication*" -or $cleanUrl -like "*/sites/CommunicationSite*") {
-        $siteType = "Sitio de comunicación"
+        $siteType = "Sitio de comunicacion"
         $category = "principal"
     } else {
-        $siteType = "Sitio principal (Colección de sitios)"
+        $siteType = "Sitio principal (coleccion de sitios)"
         $category = "principal"
     }
 
@@ -352,7 +352,7 @@ function Get-DriveFoldersWithUniquePermissions {
                             Id        = "${SiteId}:folder:${itemId}"
                             Title     = "$SiteTitle -> Carpeta: $DriveName$currentPath"
                             WebUrl    = $folderWebUrl
-                            SiteType  = "Carpeta con permisos únicos"
+                            SiteType  = "Carpeta con permisos unicos"
                             Category  = "folder"
                             IsFolder  = $true
                             RawPerms  = $itemPerms
@@ -392,12 +392,36 @@ function Export-PermissionsToHtml {
         return
     }
 
+    # Helper para generar avatar de persona con iniciales al estilo Microsoft fluent ui
+    function Get-UserPersonaHtml {
+        param([string]$Name)
+        if ([string]::IsNullOrWhiteSpace($Name)) { $Name = "Usuario" }
+        $cleanName = $Name -replace "^Grupo:\s*", ""
+        $parts = $cleanName.Trim() -split "\s+"
+        
+        $initials = if ($parts.Count -ge 2) {
+            ($parts[0].Substring(0, 1) + $parts[-1].Substring(0, 1)).ToUpper()
+        } elseif ($cleanName.Length -ge 2) {
+            $cleanName.Substring(0, 2).ToUpper()
+        } else {
+            $cleanName.ToUpper()
+        }
+        
+        $colors = @("#0078d4", "#03787c", "#107c41", "#5c2d91", "#008272", "#004e8c", "#b4009e", "#d13438", "#881798")
+        $charSum = 0
+        foreach ($char in [char[]]$cleanName) { $charSum += [int]$char }
+        $colorIndex = $charSum % $colors.Count
+        $bgColor = $colors[$colorIndex]
+        
+        return "<span class=`"ms-avatar`" style=`"background-color: $bgColor;`">$initials</span>"
+    }
+
     $siteGroups = $ReportData | Group-Object -Property SiteUrl
     $siteCardsHtml = [System.Text.StringBuilder]::new()
 
     foreach ($group in $siteGroups) {
         $firstItem = $group.Group[0]
-        $siteTitle = if ($firstItem.SiteTitle) { $firstItem.SiteTitle } else { "Sitio de SharePoint" }
+        $siteTitle = if ($firstItem.SiteTitle) { $firstItem.SiteTitle } else { "Sitio de sharepoint" }
         $siteUrl = if ($firstItem.SiteUrl) { $firstItem.SiteUrl } else { "" }
         $siteType = if ($firstItem.SiteType) { $firstItem.SiteType } else { "Sitio" }
 
@@ -451,6 +475,7 @@ function Export-PermissionsToHtml {
 
             $uNameEsc = [System.Net.WebUtility]::HtmlEncode($item.UserName)
             $uEmailEsc = [System.Net.WebUtility]::HtmlEncode($item.UserEmail)
+            $personaAvatarHtml = Get-UserPersonaHtml -Name $item.UserName
             $actionEsc = [System.Net.WebUtility]::HtmlEncode($friendlyAction)
             $sourceEsc = [System.Net.WebUtility]::HtmlEncode($item.AccessSource)
             $inherEsc = [System.Net.WebUtility]::HtmlEncode($item.HasInheritanceEnabled)
@@ -460,8 +485,11 @@ function Export-PermissionsToHtml {
             <tr>
                 <td>
                     <div class=`"user-cell`">
-                        <span class=`"user-name`">$uNameEsc</span>
-                        <span class=`"user-email`">$uEmailEsc</span>
+                        $personaAvatarHtml
+                        <div class=`"user-info`">
+                            <span class=`"user-name`">$uNameEsc</span>
+                            <span class=`"user-email`">$uEmailEsc</span>
+                        </div>
                     </div>
                 </td>
                 <td><span class=`"badge $permBadgeClass`">$actionEsc</span></td>
@@ -482,10 +510,21 @@ function Export-PermissionsToHtml {
             <div class=`"site-header`">
                 <div>
                     <div class=`"site-title-row`">
+                        <span class=`"site-icon-wrapper`">
+                            <svg width=`"18`" height=`"18`" viewBox=`"0 0 20 20`" fill=`"currentColor`">
+                                <path fill-rule=`"evenodd`" d=`"M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm3 1a1 1 0 000 2h6a1 1 0 100-2H7zm0 4a1 1 0 000 2h6a1 1 0 100-2H7zm0 4a1 1 0 100 2h4a1 1 0 100-2H7z`" clip-rule=`"evenodd`"/>
+                            </svg>
+                        </span>
                         <span class=`"site-title`">$siteTitleEsc</span>
                         <span class=`"badge $siteBadgeClass`">$siteTypeEsc</span>
                     </div>
-                    <a href=`"$siteUrlEsc`" target=`"_blank`" class=`"site-url-link`">$siteUrlEsc</a>
+                    <a href=`"$siteUrlEsc`" target=`"_blank`" class=`"site-url-link`">
+                        <svg width=`"12`" height=`"12`" viewBox=`"0 0 16 16`" fill=`"currentColor`" style=`"vertical-align: middle; margin-right: 3px;`">
+                            <path fill-rule=`"evenodd`" d=`"M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z`"/>
+                            <path fill-rule=`"evenodd`" d=`"M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z`"/>
+                        </svg>
+                        $siteUrlEsc
+                    </a>
                 </div>
                 <div class=`"site-meta`">
                     <span class=`"badge badge-generic`">$siteUsersCount usuarios e identidades</span>
@@ -496,9 +535,9 @@ function Export-PermissionsToHtml {
                     <thead>
                         <tr>
                             <th>Usuario e identidad</th>
-                            <th>¿Qué puede hacer el usuario?</th>
+                            <th>Nivel de acceso</th>
                             <th>Origen del permiso</th>
-                            <th>¿Hereda permisos?</th>
+                            <th>Hereda permisos</th>
                             <th>Detalle de herencia</th>
                         </tr>
                     </thead>
@@ -511,12 +550,13 @@ function Export-PermissionsToHtml {
 ")
     }
 
-    # Renderizar Matriz General por Usuario interactiva con lista estructurada y desplegables
+    # Renderizar matriz general por usuario interactiva con lista estructurada y desplegables
     $userMatrixRowsHtml = [System.Text.StringBuilder]::new()
     if ($UserSummaryData) {
         foreach ($user in $UserSummaryData) {
             $uNameEsc = [System.Net.WebUtility]::HtmlEncode($user.UserName)
             $uEmailEsc = [System.Net.WebUtility]::HtmlEncode($user.UserEmail)
+            $personaAvatarHtml = Get-UserPersonaHtml -Name $user.UserName
             $friendlyActionSummary = Get-FriendlyActionName -TechnicalPermission $user.PermissionTypes
             $permTypesEsc = [System.Net.WebUtility]::HtmlEncode($friendlyActionSummary)
 
@@ -568,8 +608,11 @@ function Export-PermissionsToHtml {
             <tr>
                 <td>
                     <div class=`"user-cell`">
-                        <span class=`"user-name`">$uNameEsc</span>
-                        <span class=`"user-email`">$uEmailEsc</span>
+                        $personaAvatarHtml
+                        <div class=`"user-info`">
+                            <span class=`"user-name`">$uNameEsc</span>
+                            <span class=`"user-email`">$uEmailEsc</span>
+                        </div>
                     </div>
                 </td>
                 <td>
@@ -597,277 +640,432 @@ function Export-PermissionsToHtml {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auditoría de permisos de SPO</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Auditoria de permisos - Microsoft sharepoint online</title>
     <style>
         :root {
-            --bg-main: #0f172a;
-            --bg-card: #1e293b;
-            --bg-header: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
-            --bg-site-header: #1e1b4b;
-            --bg-table-header: #111827;
-            --bg-table-hover: #334155;
-            --bg-input: #0f172a;
-            --bg-details: #0f172a;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-heading: #ffffff;
-            --text-user-name: #f8fafc;
-            --text-link: #38bdf8;
-            --border-color: #334155;
-            --border-header: #3730a3;
-            --accent-cyan: #06b6d4;
-            --accent-indigo: #6366f1;
-            --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.3);
+            /* Microsoft fluent ui design tokens - Light mode (Sharepoint default) */
+            --sp-brand: #03787c;
+            --sp-brand-hover: #025c5f;
+            --sp-brand-light: #e6f2f3;
+            --m365-blue: #0078d4;
+            --m365-suite-bg: #0078d4;
+            
+            --bg-main: #faf9f8;
+            --bg-card: #ffffff;
+            --bg-header: #ffffff;
+            --bg-site-header: #f3f2f1;
+            --bg-table-header: #faf9f8;
+            --bg-table-hover: #f3f2f1;
+            --bg-input: #ffffff;
+            --bg-details: #faf9f8;
+            
+            --text-primary: #201f1e;
+            --text-secondary: #605e5c;
+            --text-heading: #11100f;
+            --text-user-name: #201f1e;
+            --text-link: #0078d4;
+            
+            --border-color: #edebe9;
+            --border-subtle: #e1dfdd;
+            --border-header: #e1dfdd;
+            --accent-cyan: #03787c;
+            --accent-indigo: #0078d4;
+            
+            --shadow-card: 0 1.6px 3.6px 0 rgba(0,0,0,0.132), 0 0.3px 0.9px 0 rgba(0,0,0,0.108);
+            --shadow-elevated: 0 3.2px 7.2px 0 rgba(0,0,0,0.132), 0 0.6px 1.8px 0 rgba(0,0,0,0.108);
 
-            /* Badges Dark Mode */
-            --badge-teams-bg: rgba(99, 102, 241, 0.2); --badge-teams-txt: #a5b4fc; --badge-teams-border: rgba(99, 102, 241, 0.4);
-            --badge-comm-bg: rgba(20, 184, 166, 0.2); --badge-comm-txt: #5eead4; --badge-comm-border: rgba(20, 184, 166, 0.4);
-            --badge-subsite-bg: rgba(245, 158, 11, 0.2); --badge-subsite-txt: #fde047; --badge-subsite-border: rgba(245, 158, 11, 0.4);
-            --badge-folder-bg: rgba(249, 115, 22, 0.2); --badge-folder-txt: #fdba74; --badge-folder-border: rgba(249, 115, 22, 0.4);
+            /* Badges fluent ui light mode */
+            --badge-teams-bg: #f3f2f1; --badge-teams-txt: #464775; --badge-teams-border: #6264a7;
+            --badge-comm-bg: #e6f2f3; --badge-comm-txt: #03787c; --badge-comm-border: #03787c;
+            --badge-subsite-bg: #fff4ce; --badge-subsite-txt: #797775; --badge-subsite-border: #d97706;
+            --badge-folder-bg: #deecf9; --badge-folder-txt: #005a9e; --badge-folder-border: #106ebe;
 
-            --badge-owner-bg: rgba(239, 68, 68, 0.2); --badge-owner-txt: #fca5a5; --badge-owner-border: rgba(239, 68, 68, 0.4);
-            --badge-write-bg: rgba(245, 158, 11, 0.2); --badge-write-txt: #fde047; --badge-write-border: rgba(245, 158, 11, 0.4);
-            --badge-read-bg: rgba(34, 197, 94, 0.2); --badge-read-txt: #86efac; --badge-read-border: rgba(34, 197, 94, 0.4);
-            --badge-generic-bg: rgba(148, 163, 184, 0.15); --badge-generic-txt: #cbd5e1; --badge-generic-border: rgba(148, 163, 184, 0.3);
+            --badge-owner-bg: #fde8e8; --badge-owner-txt: #a80000; --badge-owner-border: #f8c2c2;
+            --badge-write-bg: #fff4ce; --badge-write-txt: #8a3b00; --badge-write-border: #feea9f;
+            --badge-read-bg: #dff6dd; --badge-read-txt: #107c41; --badge-read-border: #92e08f;
+            --badge-generic-bg: #f3f2f1; --badge-generic-txt: #605e5c; --badge-generic-border: #e1dfdd;
 
-            --badge-inherited-bg: rgba(6, 182, 212, 0.15); --badge-inherited-txt: #67e8f9; --badge-inherited-border: rgba(6, 182, 212, 0.3);
-            --badge-unique-bg: rgba(245, 158, 11, 0.15); --badge-unique-txt: #fde047; --badge-unique-border: rgba(245, 158, 11, 0.3);
+            --badge-inherited-bg: #deecf9; --badge-inherited-txt: #0078d4; --badge-inherited-border: #c7e0f4;
+            --badge-unique-bg: #fff4ce; --badge-unique-txt: #8a3b00; --badge-unique-border: #feea9f;
 
-            --badge-user-bg: rgba(99, 102, 241, 0.15); --badge-user-txt: #a5b4fc;
-            --badge-entragroup-bg: rgba(168, 85, 247, 0.15); --badge-entragroup-txt: #d8b4fe;
-            --badge-spgroup-bg: rgba(236, 72, 153, 0.15); --badge-spgroup-txt: #f472b6;
-            --badge-app-bg: rgba(20, 184, 166, 0.15); --badge-app-txt: #5eead4;
+            --badge-user-bg: #deecf9; --badge-user-txt: #005a9e;
+            --badge-entragroup-bg: #f3e8ff; --badge-entragroup-txt: #5c2d91;
+            --badge-spgroup-bg: #e6f2f3; --badge-spgroup-txt: #03787c;
+            --badge-app-bg: #edf5f5; --badge-app-txt: #008272;
         }
 
-        [data-theme="light"] {
-            --bg-main: #f8fafc;
-            --bg-card: #ffffff;
-            --bg-header: linear-gradient(135deg, #e0e7ff 0%, #ffffff 100%);
-            --bg-site-header: #f1f5f9;
-            --bg-table-header: #f8fafc;
-            --bg-table-hover: #f1f5f9;
-            --bg-input: #ffffff;
-            --bg-details: #f8fafc;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --text-heading: #1e1b4b;
-            --text-user-name: #0f172a;
-            --text-link: #0284c7;
-            --border-color: #e2e8f0;
-            --border-header: #c7d2fe;
-            --accent-cyan: #0284c7;
-            --accent-indigo: #4f46e5;
-            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.06);
+        [data-theme="dark"] {
+            /* Microsoft fluent ui dark theme */
+            --sp-brand: #00a8ac;
+            --sp-brand-hover: #00c7cb;
+            --sp-brand-light: #163638;
+            --m365-blue: #2899f5;
+            --m365-suite-bg: #0f172a;
+            
+            --bg-main: #11100f;
+            --bg-card: #1b1a19;
+            --bg-header: #1b1a19;
+            --bg-site-header: #252423;
+            --bg-table-header: #1b1a19;
+            --bg-table-hover: #292827;
+            --bg-input: #252423;
+            --bg-details: #11100f;
+            
+            --text-primary: #f3f2f1;
+            --text-secondary: #a19f9d;
+            --text-heading: #ffffff;
+            --text-user-name: #ffffff;
+            --text-link: #2899f5;
+            
+            --border-color: #292827;
+            --border-subtle: #323130;
+            --border-header: #292827;
+            --accent-cyan: #00a8ac;
+            --accent-indigo: #2899f5;
+            
+            --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4);
+            --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
 
-            /* Badges Light Mode */
-            --badge-teams-bg: #e0e7ff; --badge-teams-txt: #3730a3; --badge-teams-border: #c7d2fe;
-            --badge-comm-bg: #ccfbf1; --badge-comm-txt: #0f766e; --badge-comm-border: #99f6e4;
-            --badge-subsite-bg: #fef3c7; --badge-subsite-txt: #b45309; --badge-subsite-border: #fde68a;
-            --badge-folder-bg: #ffedd5; --badge-folder-txt: #c2410c; --badge-folder-border: #fed7aa;
+            /* Badges dark mode */
+            --badge-teams-bg: rgba(98, 100, 167, 0.25); --badge-teams-txt: #a6a8d6; --badge-teams-border: rgba(98, 100, 167, 0.5);
+            --badge-comm-bg: rgba(3, 120, 124, 0.25); --badge-comm-txt: #4cd9dc; --badge-comm-border: rgba(3, 120, 124, 0.5);
+            --badge-subsite-bg: rgba(217, 119, 6, 0.25); --badge-subsite-txt: #fcd34d; --badge-subsite-border: rgba(217, 119, 6, 0.5);
+            --badge-folder-bg: rgba(0, 90, 158, 0.25); --badge-folder-txt: #6cb8f6; --badge-folder-border: rgba(0, 90, 158, 0.5);
 
-            --badge-owner-bg: #fee2e2; --badge-owner-txt: #b91c1c; --badge-owner-border: #fca5a5;
-            --badge-write-bg: #fef3c7; --badge-write-txt: #b45309; --badge-write-border: #fde68a;
-            --badge-read-bg: #dcfce7; --badge-read-txt: #15803d; --badge-read-border: #86efac;
-            --badge-generic-bg: #f1f5f9; --badge-generic-txt: #334155; --badge-generic-border: #cbd5e1;
+            --badge-owner-bg: rgba(209, 52, 56, 0.25); --badge-owner-txt: #f87171; --badge-owner-border: rgba(209, 52, 56, 0.5);
+            --badge-write-bg: rgba(217, 119, 6, 0.25); --badge-write-txt: #fbbf24; --badge-write-border: rgba(217, 119, 6, 0.5);
+            --badge-read-bg: rgba(16, 124, 65, 0.25); --badge-read-txt: #4ade80; --badge-read-border: rgba(16, 124, 65, 0.5);
+            --badge-generic-bg: rgba(161, 159, 157, 0.2); --badge-generic-txt: #d2d0ce; --badge-generic-border: rgba(161, 159, 157, 0.4);
 
-            --badge-inherited-bg: #e0f2fe; --badge-inherited-txt: #0369a1; --badge-inherited-border: #bae6fd;
-            --badge-unique-bg: #fef3c7; --badge-unique-txt: #b45309; --badge-unique-border: #fde68a;
+            --badge-inherited-bg: rgba(40, 153, 245, 0.2); --badge-inherited-txt: #70baff; --badge-inherited-border: rgba(40, 153, 245, 0.4);
+            --badge-unique-bg: rgba(217, 119, 6, 0.2); --badge-unique-txt: #fbbf24; --badge-unique-border: rgba(217, 119, 6, 0.4);
 
-            --badge-user-bg: #e0e7ff; --badge-user-txt: #3730a3;
-            --badge-entragroup-bg: #f3e8ff; --badge-entragroup-txt: #7e22ce;
-            --badge-spgroup-bg: #fce7f3; --badge-spgroup-txt: #be185d;
-            --badge-app-bg: #ccfbf1; --badge-app-txt: #0f766e;
+            --badge-user-bg: rgba(40, 153, 245, 0.2); --badge-user-txt: #70baff;
+            --badge-entragroup-bg: rgba(180, 0, 158, 0.2); --badge-entragroup-txt: #e37bee;
+            --badge-spgroup-bg: rgba(0, 168, 172, 0.2); --badge-spgroup-txt: #4cd9dc;
+            --badge-app-bg: rgba(0, 130, 114, 0.2); --badge-app-txt: #42d1bd;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
             background-color: var(--bg-main);
             color: var(--text-primary);
-            padding: 30px 20px;
+            padding-bottom: 40px;
             line-height: 1.5;
-            transition: background-color 0.3s ease, color 0.3s ease;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header {
-            background: var(--bg-header);
-            border: 1px solid var(--border-header);
-            border-radius: 16px;
-            padding: 24px 32px;
+
+        /* Top suite bar Microsoft 365 */
+        .m365-suite-bar {
+            background-color: var(--m365-suite-bg);
+            color: #ffffff;
+            height: 48px;
+            padding: 0 24px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.14);
+            margin-bottom: 24px;
+        }
+        .suite-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .waffle-icon { opacity: 0.95; cursor: default; }
+        .sp-icon { display: flex; align-items: center; }
+        .suite-title { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.2px; }
+        .suite-subtitle { opacity: 0.85; font-size: 0.88rem; font-weight: 400; }
+        
+        .suite-right {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 0.82rem;
+        }
+        .suite-meta-item { display: flex; gap: 6px; }
+        .meta-label { opacity: 0.75; }
+        .meta-value { font-weight: 600; }
+        .suite-meta-badge {
+            background: rgba(255,255,255,0.18);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .container { width: 100%; max-width: 100%; margin: 0; padding: 0 24px; }
+        
+        /* Header section inside container */
+        .page-header {
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-end;
             flex-wrap: wrap;
             gap: 16px;
-            box-shadow: var(--shadow-card);
-            transition: background 0.3s ease, border-color 0.3s ease;
         }
-        .header h1 { font-size: 1.6rem; font-weight: 700; color: var(--text-heading); margin-bottom: 6px; }
-        .header p { color: var(--text-secondary); font-size: 0.9rem; }
-        .header-meta { text-align: right; font-size: 0.85rem; color: var(--text-secondary); }
-        .header-meta span { color: var(--accent-cyan); font-weight: 600; }
-        
-        .info-banner {
+        .page-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-heading);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 2px;
+        }
+
+        /* Fluent message bar */
+        .ms-message-bar {
             background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-left: 4px solid var(--accent-cyan);
-            border-radius: 12px;
-            padding: 16px 20px;
+            border: 1px solid var(--border-subtle);
+            border-left: 4px solid var(--sp-brand);
+            border-radius: 4px;
+            padding: 14px 18px;
             margin-bottom: 24px;
             font-size: 0.88rem;
             color: var(--text-primary);
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow-card);
         }
-        .info-banner strong { color: var(--text-heading); }
+        .ms-message-bar svg { color: var(--sp-brand); flex-shrink: 0; }
+        .ms-message-bar strong { color: var(--text-heading); }
 
+        /* Metric kpi cards */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
         .metric-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 20px;
+            border-radius: 4px;
+            padding: 16px 20px;
             box-shadow: var(--shadow-card);
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
         }
-        .metric-card .title { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; letter-spacing: 0.5px; }
-        .metric-card .value { font-size: 1.8rem; font-weight: 700; color: var(--text-heading); margin-top: 6px; }
-        .metric-card .subtext { font-size: 0.75rem; color: var(--accent-cyan); margin-top: 4px; }
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background-color: var(--sp-brand);
+        }
+        .metric-card.card-primary::before { background-color: var(--sp-brand); }
+        .metric-card.card-subsite::before { background-color: #d97706; }
+        .metric-card.card-folder::before { background-color: #005a9e; }
+        .metric-card.card-teams::before { background-color: #6264a7; }
+        .metric-card.card-users::before { background-color: #107c41; }
 
+        .metric-card .title {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-card .value {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+        .metric-card .subtext {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Toolbar & pivot tabs */
         .toolbar {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 16px 20px;
+            border-radius: 4px;
+            padding: 12px 18px;
             margin-bottom: 24px;
             display: flex;
             gap: 16px;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            box-shadow: var(--shadow-card);
         }
+        .filter-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+        .tab-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 8px 14px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border-radius: 2px 2px 0 0;
+        }
+        .tab-btn:hover {
+            color: var(--sp-brand);
+            background: var(--bg-site-header);
+        }
+        .tab-btn.active {
+            color: var(--sp-brand);
+            border-bottom: 2px solid var(--sp-brand);
+            background: transparent;
+        }
+
         .toolbar-controls {
             display: flex;
             gap: 12px;
             align-items: center;
             flex: 1;
             justify-content: flex-end;
-            min-width: 300px;
+            min-width: 280px;
         }
-        .search-box { flex: 1; min-width: 220px; max-width: 450px; }
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
         .search-box input {
             width: 100%;
-            padding: 10px 16px;
+            padding: 8px 12px 8px 34px;
             background: var(--bg-input);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
             color: var(--text-primary);
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             outline: none;
             transition: all 0.2s ease;
         }
-        .search-box input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2); }
+        .search-box input:focus {
+            border-color: var(--sp-brand);
+            box-shadow: 0 0 0 1px var(--sp-brand);
+        }
 
         .theme-toggle-btn {
             background: var(--bg-input);
             color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            border: 1px solid var(--border-subtle);
+            padding: 7px 14px;
+            border-radius: 2px;
+            font-size: 0.84rem;
             font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 6px;
             white-space: nowrap;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
         }
         .theme-toggle-btn:hover {
-            border-color: var(--accent-cyan);
-            color: var(--accent-cyan);
-            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+            border-color: var(--sp-brand);
+            color: var(--sp-brand);
+            background: var(--bg-site-header);
         }
 
-        .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-        .tab-btn {
-            background: var(--bg-input);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .tab-btn.active, .tab-btn:hover {
-            background: var(--accent-indigo);
-            color: #ffffff;
-            border-color: var(--accent-indigo);
-        }
-
+        /* Site cards */
         .site-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            margin-bottom: 24px;
+            border-radius: 4px;
+            margin-bottom: 20px;
             overflow: hidden;
             box-shadow: var(--shadow-card);
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
         }
         .site-header {
             background: var(--bg-site-header);
             border-bottom: 1px solid var(--border-color);
-            padding: 18px 24px;
+            padding: 14px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 12px;
-            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-        .site-title-row { display: flex; align-items: center; gap: 12px; }
-        .site-title { font-size: 1.2rem; font-weight: 700; color: var(--text-heading); }
-        .site-url-link { font-size: 0.85rem; color: var(--text-link); text-decoration: none; display: block; margin-top: 4px; }
+        .site-title-row { display: flex; align-items: center; gap: 10px; }
+        .site-icon-wrapper { color: var(--sp-brand); display: flex; align-items: center; }
+        .site-title { font-size: 1.1rem; font-weight: 600; color: var(--text-heading); }
+        .site-url-link { font-size: 0.84rem; color: var(--text-link); text-decoration: none; display: inline-block; margin-top: 3px; }
         .site-url-link:hover { text-decoration: underline; }
 
+        /* Tables - Details list style */
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th {
             background: var(--bg-table-header);
-            padding: 12px 18px;
+            padding: 10px 16px;
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             color: var(--text-secondary);
             border-bottom: 1px solid var(--border-color);
             letter-spacing: 0.5px;
-            transition: background-color 0.3s ease, color 0.3s ease;
         }
-        td { padding: 12px 18px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; vertical-align: top; color: var(--text-primary); }
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.85rem;
+            vertical-align: middle;
+            color: var(--text-primary);
+        }
         tr:hover { background-color: var(--bg-table-hover); }
 
-        .user-cell { display: flex; flex-direction: column; }
-        .user-name { font-weight: 600; color: var(--text-user-name); }
+        /* User persona avatar cell */
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .ms-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+        }
+        .user-info { display: flex; flex-direction: column; }
+        .user-name { font-weight: 600; color: var(--text-user-name); font-size: 0.86rem; }
         .user-email { font-size: 0.75rem; color: var(--text-secondary); }
 
+        /* Fluent badges */
         .badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
+            padding: 3px 10px;
+            border-radius: 12px;
             font-size: 0.75rem;
             font-weight: 600;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
         .badge-teams-site { background: var(--badge-teams-bg); color: var(--badge-teams-txt); border: 1px solid var(--badge-teams-border); }
         .badge-comm-site { background: var(--badge-comm-bg); color: var(--badge-comm-txt); border: 1px solid var(--badge-comm-border); }
@@ -887,120 +1085,166 @@ function Export-PermissionsToHtml {
         .badge-spgroup { background: var(--badge-spgroup-bg); color: var(--badge-spgroup-txt); }
         .badge-app { background: var(--badge-app-bg); color: var(--badge-app-txt); }
 
+        /* User access summary & details */
         .user-access-details {
             background: var(--bg-details);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
             padding: 8px 12px;
-            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         .user-access-summary {
             cursor: pointer;
             font-size: 0.82rem;
             font-weight: 600;
-            color: var(--accent-cyan);
+            color: var(--sp-brand);
             display: flex;
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
             outline: none;
         }
-        .user-access-summary:hover {
-            color: var(--text-heading);
-        }
-        .view-more-link {
-            margin-left: auto;
-            font-size: 0.78rem;
-            color: var(--text-link);
-            text-decoration: underline;
-        }
+        .user-access-summary:hover { color: var(--text-heading); }
+        .view-more-link { margin-left: auto; font-size: 0.78rem; color: var(--text-link); text-decoration: underline; }
         .access-items-list {
             list-style: none;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border-color);
-            max-height: 240px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-subtle);
+            max-height: 220px;
             overflow-y: auto;
         }
         .access-items-list li {
-            padding: 6px 4px;
+            padding: 5px 4px;
             font-size: 0.8rem;
             color: var(--text-primary);
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
             gap: 8px;
             word-break: break-word;
         }
-        .access-items-list li:last-child {
-            border-bottom: none;
-        }
-        .access-pill-row {
-            margin-bottom: 6px;
-            font-size: 0.82rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .access-item-name {
-            color: var(--text-primary);
-        }
+        .access-items-list li:last-child { border-bottom: none; }
+        .access-pill-row { margin-bottom: 4px; font-size: 0.82rem; display: flex; align-items: center; gap: 8px; }
+        .access-item-name { color: var(--text-primary); }
 
         .text-subtle { font-size: 0.8rem; color: var(--text-secondary); }
         .view-section { margin-bottom: 32px; }
-        .section-title { font-size: 1.3rem; font-weight: 700; color: var(--text-heading); margin-bottom: 16px; border-left: 4px solid var(--accent-cyan); padding-left: 12px; }
-        .footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: var(--text-secondary); }
+        .section-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-heading);
+            margin-bottom: 14px;
+            border-left: 4px solid var(--sp-brand);
+            padding-left: 10px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+        .footer-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .footer-separator { opacity: 0.4; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <h1>Auditoría de permisos de SPO</h1>
-                <p>Auditoría de accesos para el site $auditedSiteNameEsc</p>
+    <!-- Top suite bar Microsoft 365 -->
+    <div class="m365-suite-bar">
+        <div class="suite-left">
+            <svg class="waffle-icon" viewBox="0 0 20 20" width="20" height="20" fill="currentColor">
+                <circle cx="4" cy="4" r="1.8"/>
+                <circle cx="10" cy="4" r="1.8"/>
+                <circle cx="16" cy="4" r="1.8"/>
+                <circle cx="4" cy="10" r="1.8"/>
+                <circle cx="10" cy="10" r="1.8"/>
+                <circle cx="16" cy="10" r="1.8"/>
+                <circle cx="4" cy="16" r="1.8"/>
+                <circle cx="10" cy="16" r="1.8"/>
+                <circle cx="16" cy="16" r="1.8"/>
+            </svg>
+            <div class="sp-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                    <rect width="24" height="24" rx="4" fill="#03787C"/>
+                    <path d="M12 4C7.58 4 4 7.58 4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12C20 7.58 16.42 4 12 4ZM12 17.5C8.96 17.5 6.5 15.04 6.5 12C6.5 8.96 8.96 6.5 12 6.5C15.04 6.5 17.5 8.96 17.5 12C17.5 15.04 15.04 17.5 12 17.5Z" fill="white" fill-opacity="0.3"/>
+                    <path d="M14.5 12C14.5 13.38 13.38 14.5 12 14.5C10.62 14.5 9.5 13.38 9.5 12C9.5 10.62 10.62 9.5 12 9.5C13.38 9.5 14.5 10.62 14.5 12Z" fill="white"/>
+                </svg>
             </div>
-            <div class="header-meta">
-                <p>Usuario: <span>$userAccountEsc</span></p>
-                <p>Fecha de auditoría: <span>$dateNowStr</span></p>
-                <p>Tiempo transcurrido: <span>$ElapsedTime</span></p>
+            <span class="suite-title">SharePoint</span>
+            <span class="suite-subtitle">| Auditoria de permisos</span>
+        </div>
+        <div class="suite-right">
+            <div class="suite-meta-item">
+                <span class="meta-label">Tenant:</span>
+                <span class="meta-value">$userAccountEsc</span>
+            </div>
+            <div class="suite-meta-item">
+                <span class="meta-label">Fecha:</span>
+                <span class="meta-value">$dateNowStr</span>
+            </div>
+            <div class="suite-meta-badge">
+                ⚡ $ElapsedTime
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <div>
+                <h1>Auditoria de permisos e identidades</h1>
+                <p>Analisis detallado para el sitio <strong>$auditedSiteNameEsc</strong></p>
             </div>
         </div>
 
-        <div class="info-banner">
-            <strong>Estructura de SharePoint Online:</strong>
-            <span> <b>Sitio principal</b> es el sitio independiente raíz. <b>Subsitio</b> es un sitio secundario hijo. <b>Carpeta con permisos únicos</b> indica una biblioteca o carpeta donde se han personalizado los permisos.</span>
+        <div class="ms-message-bar">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <strong>Estructura de sharepoint online:</strong>
+                <span><b>Sitio principal</b> es la coleccion raiz. <b>Subsitio</b> es una web secundaria. <b>Carpeta con permisos unicos</b> indica ruptura explicita de herencia en la biblioteca de documentos.</span>
+            </div>
         </div>
 
         <div class="metrics-grid">
-            <div class="metric-card">
+            <div class="metric-card card-primary">
                 <div class="title">Total espacios</div>
                 <div class="value">$TotalSitesCount</div>
                 <div class="subtext">Analizados en total</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card card-primary">
                 <div class="title">Sitios principales</div>
                 <div class="value">$PrimarySitesCount</div>
                 <div class="subtext">Colecciones independientes</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card card-subsite">
                 <div class="title">Subsitios</div>
                 <div class="value">$SubsitesCount</div>
                 <div class="subtext">Sitios secundarios/hijos</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card card-folder">
                 <div class="title">Carpetas / bibliotecas</div>
                 <div class="value">$FoldersCount</div>
-                <div class="subtext">Con permisos únicos</div>
+                <div class="subtext">Con permisos unicos</div>
             </div>
-            <div class="metric-card">
-                <div class="title">Equipos Teams</div>
+            <div class="metric-card card-teams">
+                <div class="title">Equipos teams</div>
                 <div class="value">$TeamSitesCount</div>
-                <div class="subtext">Sitios M365</div>
+                <div class="subtext">Sitios m365</div>
             </div>
-            <div class="metric-card">
-                <div class="title">Usuarios únicos</div>
+            <div class="metric-card card-users">
+                <div class="title">Usuarios unicos</div>
                 <div class="value">$uniqueUsersCount</div>
-                <div class="subtext">Personas físicas</div>
+                <div class="subtext">Identidades detectadas</div>
             </div>
         </div>
 
@@ -1010,22 +1254,25 @@ function Export-PermissionsToHtml {
                 <button class="tab-btn" onclick="switchView('users', event)">Vista matriz por usuario ($uniqueUsersCount)</button>
                 <button class="tab-btn" onclick="filterCategory('principal', event)">Sitios principales ($PrimarySitesCount)</button>
                 <button class="tab-btn" onclick="filterCategory('subsite', event)">Subsitios ($SubsitesCount)</button>
-                <button class="tab-btn" onclick="filterCategory('folder', event)">Carpetas únicas ($FoldersCount)</button>
-                <button class="tab-btn" onclick="filterCategory('teams', event)">Equipos Teams ($TeamSitesCount)</button>
+                <button class="tab-btn" onclick="filterCategory('folder', event)">Carpetas unicas ($FoldersCount)</button>
+                <button class="tab-btn" onclick="filterCategory('teams', event)">Equipos teams ($TeamSitesCount)</button>
             </div>
             <div class="toolbar-controls">
                 <div class="search-box">
+                    <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
                     <input type="text" id="tableSearch" placeholder="Buscar usuario, correo, sitio o carpeta..." onkeyup="searchSites()">
                 </div>
                 <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()" title="Cambiar tema de color">
-                    <span id="themeIcon">☀️</span> <span id="themeText">Modo Claro</span>
+                    <span id="themeIcon"><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg></span> <span id="themeText">Modo oscuro</span>
                 </button>
             </div>
         </div>
 
         <!-- VISTA 1: ORGANIZADA POR SITIO Y SUBSITIO Y CARPETAS -->
         <div id="sitesView" class="view-section">
-            <div class="section-title">Desglose de permisos por sitio, subsitio y carpetas con permisos únicos</div>
+            <div class="section-title">Desglose de permisos por sitio, subsitio y carpetas con permisos unicos</div>
             <div id="sitesContainer">
                 $cardsBodyHtml
             </div>
@@ -1033,7 +1280,7 @@ function Export-PermissionsToHtml {
 
         <!-- VISTA 2: MATRIZ POR USUARIO -->
         <div id="usersView" class="view-section" style="display: none;">
-            <div class="section-title">Matriz completa por usuario</div>
+            <div class="section-title">Matriz completa por usuario e identidad</div>
             <div class="site-card">
                 <div class="table-container">
                     <table>
@@ -1054,7 +1301,16 @@ function Export-PermissionsToHtml {
         </div>
 
         <div class="footer">
-            <p>Autor: Alejandro Suárez Fernández</p>
+            <div class="footer-content">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                    <rect width="24" height="24" rx="4" fill="#03787C"/>
+                    <path d="M12 4C7.58 4 4 7.58 4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12C20 7.58 16.42 4 12 4ZM12 17.5C8.96 17.5 6.5 15.04 6.5 12C6.5 8.96 8.96 6.5 12 6.5C15.04 6.5 17.5 8.96 17.5 12C17.5 15.04 15.04 17.5 12 17.5Z" fill="white" fill-opacity="0.3"/>
+                    <path d="M14.5 12C14.5 13.38 13.38 14.5 12 14.5C10.62 14.5 9.5 13.38 9.5 12C9.5 10.62 10.62 9.5 12 9.5C13.38 9.5 14.5 10.62 14.5 12Z" fill="white"/>
+                </svg>
+                <span>Microsoft 365 - SharePoint online auditoria de permisos</span>
+                <span class="footer-separator">&bull;</span>
+                <span>Autor: Alejandro Suarez Fernandez (@alexsf93)</span>
+            </div>
         </div>
     </div>
 
@@ -1062,7 +1318,7 @@ function Export-PermissionsToHtml {
         var currentFilter = 'all';
 
         function toggleTheme() {
-            var currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            var currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
             var newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             setTheme(newTheme);
         }
@@ -1075,26 +1331,27 @@ function Export-PermissionsToHtml {
 
             var themeIcon = document.getElementById('themeIcon');
             var themeText = document.getElementById('themeText');
-            if (theme === 'light') {
-                if (themeIcon) themeIcon.textContent = '🌙';
-                if (themeText) themeText.textContent = 'Modo Oscuro';
+            var moonSvg = '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>';
+            var sunSvg = '<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clip-rule="evenodd"/></svg>';
+            if (theme === 'dark') {
+                if (themeIcon) themeIcon.innerHTML = sunSvg;
+                if (themeText) themeText.textContent = 'Modo claro';
             } else {
-                if (themeIcon) themeIcon.textContent = '☀️';
-                if (themeText) themeText.textContent = 'Modo Claro';
+                if (themeIcon) themeIcon.innerHTML = moonSvg;
+                if (themeText) themeText.textContent = 'Modo oscuro';
             }
         }
 
-        // Cargar preferencia guardada o por defecto
         (function() {
-            var savedTheme = 'dark';
+            var savedTheme = 'light';
             try {
-                savedTheme = localStorage.getItem('spo_audit_theme') || 'dark';
+                savedTheme = localStorage.getItem('spo_audit_theme') || 'light';
             } catch (e) {}
             setTheme(savedTheme);
         })();
 
         function switchView(viewName, event) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(function(btn) { btn.classList.remove('active'); });
             if (event && event.target) {
                 event.target.classList.add('active');
             }
@@ -1112,7 +1369,7 @@ function Export-PermissionsToHtml {
         }
 
         function filterCategory(type, event) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(function(btn) { btn.classList.remove('active'); });
             if (event && event.target) {
                 event.target.classList.add('active');
             }
@@ -1159,16 +1416,16 @@ function Export-PermissionsToHtml {
 </html>
 "@
 
-    $htmlContent | Out-File -FilePath $FilePath -Encoding UTF8 -Force
+    [System.IO.File]::WriteAllText($FilePath, $htmlContent, [System.Text.Encoding]::UTF8)
     Write-StatusMsg -Message "Informe HTML guardado en: $FilePath" -Status "SUCCESS"
 }
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-# PASO 2: Descubrimiento de sitios principales en el tenant
-Write-StepHeader -StepNumber 2 -TotalSteps 6 -Title "Búsqueda de sitios principales en el tenant"
+# Paso 2: Descubrimiento de sitios principales en el tenant
+Write-StepHeader -StepNumber 2 -TotalSteps 6 -Title "Busqueda de sitios principales en el tenant"
 
-Write-StatusMsg -Message "Buscando sitios en SharePoint..." -Status "WORKING"
+Write-StatusMsg -Message "Buscando sitios en sharepoint..." -Status "WORKING"
 $allSitesRaw = [System.Collections.Generic.List[PSObject]]::new()
 $m365GroupUrls = @{}
 $m365GroupIdMap = @{}
@@ -1176,7 +1433,7 @@ $m365GroupIdMap = @{}
 # A. Si se proporciono parametro -SiteUrl / -SiteName, intentar resolucion directa primero
 $targetSiteFilter = if ($SiteUrl) { $SiteUrl } elseif ($SiteName) { $SiteName } else { "" }
 if ($targetSiteFilter) {
-    Write-StatusMsg -Message "Filtro indicado por parámetro: '$targetSiteFilter'" -Status "INFO"
+    Write-StatusMsg -Message "Filtro indicado por parametro: '$targetSiteFilter'" -Status "INFO"
     try {
         $targetHost = $tenantHostName
         $cleanFilter = $targetSiteFilter
@@ -1202,7 +1459,7 @@ if ($targetSiteFilter) {
 }
 
 # B. Consultar la API de busqueda de Graph iterando por letras y palabras clave
-Write-StatusMsg -Message "Consultando el catálogo exhaustivo de sitios..." -Status "WORKING"
+Write-StatusMsg -Message "Consultando el catalogo exhaustivo de sitios..." -Status "WORKING"
 $searchTerms = 97..122 | ForEach-Object { [char]$_ }
 $searchTerms += 0..9 | ForEach-Object { [string]$_ }
 $searchTerms += @("msteams", "rrhh", "level", "fly", "test", "viva", "http", "administracion", "site")
@@ -1216,8 +1473,8 @@ foreach ($term in $searchTerms) {
     } catch {}
 }
 
-# C. Descubrir sitios asociados a Grupos de M365 y Teams
-Write-StatusMsg -Message "Buscando sitios asociados a Teams y grupos de Microsoft 365..." -Status "WORKING"
+# C. Descubrir sitios asociados a grupos de M365 y teams
+Write-StatusMsg -Message "Buscando sitios asociados a teams y grupos de Microsoft 365..." -Status "WORKING"
 try {
     $m365Groups = Invoke-GraphPaginatedRequest -Uri "v1.0/groups?`$top=999"
     foreach ($grp in $m365Groups) {
@@ -1337,8 +1594,8 @@ foreach ($s in $sortedSites) { $generalSitesList.Add($s) }
 
 Write-StatusMsg -Message "Se han encontrado $($generalSitesList.Count) sitios principales." -Status "SUCCESS"
 
-# PASO 3: Seleccion del sitio objetivo
-Write-StepHeader -StepNumber 3 -TotalSteps 6 -Title "Selección del sitio a auditar"
+# Paso 3: Seleccion del sitio objetivo
+Write-StepHeader -StepNumber 3 -TotalSteps 6 -Title "Seleccion del sitio a auditar"
 
 $selectedGeneralSites = [System.Collections.Generic.List[PSCustomObject]]::new()
 
@@ -1354,7 +1611,7 @@ if ($targetSiteFilter) {
     }
 
     if ($selectedGeneralSites.Count -eq 0) {
-        Write-StatusMsg -Message "No se encontró ningún sitio que coincida con '$targetSiteFilter'. Se analizarán todos los sitios." -Status "WARN"
+        Write-StatusMsg -Message "No se encontro ningun sitio que coincida con '$targetSiteFilter'. Se analizaran todos los sitios." -Status "WARN"
         foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
     }
 } else {
@@ -1368,14 +1625,14 @@ if ($targetSiteFilter) {
     }
 
     if (-not $isInteractive) {
-        Write-StatusMsg -Message "Modo no interactivo detectado. Seleccionando la opción de auditar todos los sitios." -Status "INFO"
+        Write-StatusMsg -Message "Modo no interactivo detectado. Seleccionando la opcion de auditar todos los sitios." -Status "INFO"
         foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
     } else {
-        # MENU INTERACTIVO SENCILLO, ALINEADO Y PROFESIONAL
+        # Menu interactivo sencillo, alineado y profesional
         Write-Host "`n--------------------------------------------------------------------------------------------------------" -ForegroundColor Cyan
         Write-Host " Sitios disponibles en el tenant" -ForegroundColor White
         Write-Host "--------------------------------------------------------------------------------------------------------" -ForegroundColor Cyan
-        Write-Host " Selecciona el sitio que deseas auditar (se analizará la raíz, subsitios y carpetas):`n" -ForegroundColor Gray
+        Write-Host " Selecciona el sitio que deseas auditar (se analizara la raiz, subsitios y carpetas):`n" -ForegroundColor Gray
 
         Write-Host "  Nº    Nombre del sitio                    Tipo de sitio                   Ruta" -ForegroundColor Yellow
         Write-Host "  ----  ----------------------------------  ------------------------------  ----------------------------------" -ForegroundColor DarkGray
@@ -1408,21 +1665,21 @@ if ($targetSiteFilter) {
         Write-Host "  [ 0]  Auditar todos los sitios" -ForegroundColor Cyan
         Write-Host "--------------------------------------------------------------------------------------------------------`n" -ForegroundColor Cyan
 
-        $userChoice = Read-Host "Elige una opción [0-$($generalSitesList.Count)]"
+        $userChoice = Read-Host "Elige una opcion [0-$($generalSitesList.Count)]"
 
         if ($userChoice -match '^\d+$' -and [int]$userChoice -ge 1 -and [int]$userChoice -le $generalSitesList.Count) {
             $selectedIndex = [int]$userChoice - 1
             $selectedGeneralSites.Add($generalSitesList[$selectedIndex])
             Write-StatusMsg -Message "Sitio elegido: '$($selectedGeneralSites[0].Title)'" -Status "SUCCESS"
         } else {
-            Write-StatusMsg -Message "Opción elegida: Auditar todos los sitios." -Status "SUCCESS"
+            Write-StatusMsg -Message "Opcion elegida: Auditar todos los sitios." -Status "SUCCESS"
             foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
         }
     }
 }
 
-# PASO 4: Busqueda de subsitios
-Write-StepHeader -StepNumber 4 -TotalSteps 6 -Title "Búsqueda de subsitios"
+# Paso 4: Busqueda de subsitios
+Write-StepHeader -StepNumber 4 -TotalSteps 6 -Title "Busqueda de subsitios"
 
 Write-StatusMsg -Message "Buscando subsitios en los sitios seleccionados..." -Status "WORKING"
 
@@ -1488,7 +1745,7 @@ while ($subsiteQueue.Count -gt 0) {
                     Id       = $subId
                     Title    = if ($subTitle) { $subTitle } else { "Subsitio de $($currentSite.Title)" }
                     WebUrl   = $subUrl
-                    SiteType = "Subsitio de SharePoint"
+                    SiteType = "Subsitio de sharepoint"
                     Category = "subsite"
                     IsFolder = $false
                 }
@@ -1500,8 +1757,8 @@ while ($subsiteQueue.Count -gt 0) {
     }
 }
 
-# PASO 5: Busqueda de carpetas con permisos unicos
-Write-StepHeader -StepNumber 5 -TotalSteps 6 -Title "Búsqueda de carpetas con permisos propios"
+# Paso 5: Busqueda de carpetas con permisos unicos
+Write-StepHeader -StepNumber 5 -TotalSteps 6 -Title "Busqueda de carpetas con permisos propios"
 
 Write-StatusMsg -Message "Comprobando bibliotecas y carpetas con permisos personalizados..." -Status "WORKING"
 
@@ -1511,7 +1768,7 @@ foreach ($site in $sitesToScanDrives) {
         try {
             $drives = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$($site.Id)/drives"
             foreach ($drive in $drives) {
-                $driveName = if ($drive.name) { $drive.name } else { "Biblioteca de Documentos" }
+                $driveName = if ($drive.name) { $drive.name } else { "Biblioteca de documentos" }
                 $driveId = $drive.id
                 if ($driveId) {
                     Get-DriveFoldersWithUniquePermissions -SiteId $site.Id -SiteTitle $site.Title -SiteWebUrl $site.WebUrl -DriveId $driveId -DriveName $driveName -FolderPath "" -ItemId "root" -MaxDepth $MaxFolderDepth
@@ -1525,8 +1782,8 @@ foreach ($site in $sitesToScanDrives) {
 
 Write-StatusMsg -Message "Total de espacios a auditar (sitios, subsitios y carpetas): $($script:finalAuditedSites.Count)" -Status "SUCCESS"
 
-# PASO 6: Analisis de permisos por usuario y grupo
-Write-StepHeader -StepNumber 6 -TotalSteps 6 -Title "Análisis de permisos de usuarios y grupos"
+# Paso 6: Analisis de permisos por usuario y grupo
+Write-StepHeader -StepNumber 6 -TotalSteps 6 -Title "Analisis de permisos de usuarios y grupos"
 
 $permissionReport = [System.Collections.Generic.List[PSCustomObject]]::new()
 $failedSites = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -1599,7 +1856,7 @@ foreach ($site in $script:finalAuditedSites) {
                             $spUsersRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$($site.Id)/siteGroups/$spGrpId/users"
                             if ($spUsersRes -and $spUsersRes.value) {
                                 foreach ($spU in $spUsersRes.value) {
-                                    $uName = if ($spU.displayName) { $spU.displayName } else { "Usuario SharePoint" }
+                                    $uName = if ($spU.displayName) { $spU.displayName } else { "Usuario sharepoint" }
                                     $uEmail = if ($spU.userPrincipalName) { $spU.userPrincipalName } elseif ($spU.email) { $spU.email } else { $spU.id }
                                     
                                     if ($uEmail -like "*#EXT#*") {
@@ -1608,10 +1865,10 @@ foreach ($site in $script:finalAuditedSites) {
                                     }
 
                                     $spRole = switch -Regex ($spGrpName) {
-                                        "Owner|Propietario|Owners" { "Control total (owner de grupo SharePoint)" }
-                                        "Member|Miembro|Members" { "Edicion / colaboracion (member de grupo SharePoint)" }
-                                        "Visitor|Visitante|Visitors" { "Solo lectura (visitor de grupo SharePoint)" }
-                                        default { "Acceso via grupo SharePoint ($spGrpName)" }
+                                        "Owner|Propietario|Owners" { "Control total (owner de grupo sharepoint)" }
+                                        "Member|Miembro|Members" { "Edicion / colaboracion (member de grupo sharepoint)" }
+                                        "Visitor|Visitante|Visitors" { "Solo lectura (visitor de grupo sharepoint)" }
+                                        default { "Acceso via grupo sharepoint ($spGrpName)" }
                                     }
 
                                     if ($uEmail -notlike "*app@sharepoint*" -and $uEmail -notlike "*system*") {
@@ -1622,16 +1879,16 @@ foreach ($site in $script:finalAuditedSites) {
                                             SiteUrl               = $site.WebUrl
                                             SiteType              = $site.SiteType
                                             SitePermissions       = $spRole
-                                            AccessSource          = "Miembro de grupo SharePoint ($spGrpName)"
+                                            AccessSource          = "Miembro de grupo sharepoint ($spGrpName)"
                                             HasInheritanceEnabled = if ($site.SiteType -like "*Subsitio*") { "Si (grupo de sitio principal)" } else { "No (permisos directos del sitio principal)" }
-                                            InheritanceDetail     = "Grupo nativo SharePoint: $spGrpName"
+                                            InheritanceDetail     = "Grupo nativo sharepoint: $spGrpName"
                                             AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
                                         })
                                     }
                                 }
                             }
                         } catch {
-                            Write-Verbose "Error al leer usuarios de grupo SharePoint $spGrpName : $($_.Exception.Message)"
+                            Write-Verbose "Error al leer usuarios de grupo sharepoint $spGrpName : $($_.Exception.Message)"
                         }
                     }
                 }
@@ -1640,7 +1897,7 @@ foreach ($site in $script:finalAuditedSites) {
             Write-Verbose "Error al obtener siteGroups para $($site.WebUrl): $($_.Exception.Message)"
         }
 
-        # B. Extraer administradores de la coleccion de sitios (Site Collection Admins)
+        # B. Extraer administradores de la coleccion de sitios (Site collection admins)
         try {
             $adminsRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$($site.Id)/siteCollection/admins"
             if ($adminsRes -and $adminsRes.value) {
@@ -1668,7 +1925,7 @@ foreach ($site in $script:finalAuditedSites) {
             Write-Verbose "Error al obtener admins para $($site.WebUrl): $($_.Exception.Message)"
         }
 
-        # C. Extraer propietarios y miembros del Grupo M365 / Teams asociado
+        # C. Extraer propietarios y miembros del grupo M365 / teams asociado
         if ($m365GroupIdMap.ContainsKey($site.WebUrl.ToLower())) {
             $groupId = $m365GroupIdMap[$site.WebUrl.ToLower()]
             try {
@@ -1689,16 +1946,16 @@ foreach ($site in $script:finalAuditedSites) {
                             SiteTitle             = $site.Title
                             SiteUrl               = $site.WebUrl
                             SiteType              = $site.SiteType
-                            SitePermissions       = "Control total (owner de equipo / grupo M365)"
-                            AccessSource          = "Propietario de grupo M365"
+                            SitePermissions       = "Control total (owner de equipo / grupo m365)"
+                            AccessSource          = "Propietario de grupo m365"
                             HasInheritanceEnabled = "No (permisos directos de grupo)"
-                            InheritanceDetail     = "Propietario del equipo de Teams"
+                            InheritanceDetail     = "Propietario del equipo de teams"
                             AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 }
             } catch {
-                Write-Verbose "Error al obtener propietarios M365: $($_.Exception.Message)"
+                Write-Verbose "Error al obtener propietarios m365: $($_.Exception.Message)"
             }
 
             try {
@@ -1719,16 +1976,16 @@ foreach ($site in $script:finalAuditedSites) {
                             SiteTitle             = $site.Title
                             SiteUrl               = $site.WebUrl
                             SiteType              = $site.SiteType
-                            SitePermissions       = "Edicion / colaboracion (member de equipo / grupo M365)"
-                            AccessSource          = "Miembro de grupo M365"
+                            SitePermissions       = "Edicion / colaboracion (member de equipo / grupo m365)"
+                            AccessSource          = "Miembro de grupo m365"
                             HasInheritanceEnabled = "No (permisos directos de grupo)"
-                            InheritanceDetail     = "Miembro del equipo de Teams"
+                            InheritanceDetail     = "Miembro del equipo de teams"
                             AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 }
             } catch {
-                Write-Verbose "Error al obtener miembros M365: $($_.Exception.Message)"
+                Write-Verbose "Error al obtener miembros m365: $($_.Exception.Message)"
             }
         }
 
@@ -1819,8 +2076,8 @@ foreach ($site in $script:finalAuditedSites) {
                                         SiteTitle             = $site.Title
                                         SiteUrl               = $site.WebUrl
                                         SiteType              = $site.SiteType
-                                        SitePermissions       = "Control total (owner de grupo Entra ID)"
-                                        AccessSource          = "Usuario via grupo Entra ID ($grpName)"
+                                        SitePermissions       = "Control total (owner de grupo entra id)"
+                                        AccessSource          = "Usuario via grupo entra id ($grpName)"
                                         HasInheritanceEnabled = $hasInheritance
                                         InheritanceDetail     = $inheritanceDetail
                                         AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
@@ -1847,8 +2104,8 @@ foreach ($site in $script:finalAuditedSites) {
                                         SiteTitle             = $site.Title
                                         SiteUrl               = $site.WebUrl
                                         SiteType              = $site.SiteType
-                                        SitePermissions       = "Edicion / colaboracion (member de grupo Entra ID)"
-                                        AccessSource          = "Usuario via grupo Entra ID ($grpName)"
+                                        SitePermissions       = "Edicion / colaboracion (member de grupo entra id)"
+                                        AccessSource          = "Usuario via grupo entra id ($grpName)"
                                         HasInheritanceEnabled = $hasInheritance
                                         InheritanceDetail     = $inheritanceDetail
                                         AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
@@ -1928,7 +2185,7 @@ if ($permissionReport.Count -gt 0) {
 
     $stopwatch.Stop()
     $elapsedTime = "{0:hh\:mm\:ss}" -f $stopwatch.Elapsed
-    $userAccount = if ($context -and $context.Account) { $context.Account } else { "Usuario M365" }
+    $userAccount = if ($context -and $context.Account) { $context.Account } else { "Usuario m365" }
     
     $auditedSiteName = if ($selectedGeneralSites -and $selectedGeneralSites.Count -eq 1) {
         $selectedGeneralSites[0].Title
@@ -1956,19 +2213,19 @@ if ($permissionReport.Count -gt 0) {
 
 # Resumen final en consola
 Write-Host "`n=========================================================================" -ForegroundColor Cyan
-Write-Host "                          Resumen de auditoría                           " -ForegroundColor Cyan
+Write-Host "                          Resumen de auditoria                           " -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "  Tiempo total                : $elapsedTime" -ForegroundColor White
 Write-Host "  Sitios y carpetas analizados: $($script:finalAuditedSites.Count)" -ForegroundColor White
-Write-Host "  Sitios procesados con éxito : $($script:finalAuditedSites.Count - $failedSites.Count)" -ForegroundColor Green
+Write-Host "  Sitios procesados con exito : $($script:finalAuditedSites.Count - $failedSites.Count)" -ForegroundColor Green
 Write-Host "  Sitios con error u omitidos : $($failedSites.Count)" -ForegroundColor $(if ($failedSites.Count -gt 0) { "Yellow" } else { "Gray" })
 Write-Host "  Registros de permisos       : $($permissionReport.Count)" -ForegroundColor White
-Write-Host "  Usuarios únicos             : $(if ($userSummary) { $userSummary.Count } else { 0 })" -ForegroundColor White
+Write-Host "  Usuarios unicos             : $(if ($userSummary) { $userSummary.Count } else { 0 })" -ForegroundColor White
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
 if ($userSummary -and $userSummary.Count -gt 0) {
-    Write-Host "`nTop 5 usuarios con mayor número de accesos:" -ForegroundColor Yellow
+    Write-Host "`nTop 5 usuarios con mayor numero de accesos:" -ForegroundColor Yellow
     $userSummary | Select-Object -First 5 UserName, UserEmail, TotalSitesAccess, PermissionTypes | Format-Table -AutoSize
 }
 
-Write-StatusMsg -Message "Auditoría finalizada." -Status "SUCCESS"
+Write-StatusMsg -Message "Auditoria finalizada." -Status "SUCCESS"
