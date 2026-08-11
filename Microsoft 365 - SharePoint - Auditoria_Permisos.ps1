@@ -1600,22 +1600,13 @@ try {
     }
 } catch {}
 
-# C.2 Importar sitios desde CSV (si se especifico -CsvPath o si existe Sites_*.csv en directorio actual)
-$targetCsv = $CsvPath
-if (-not $targetCsv) {
-    $foundCsvs = Get-ChildItem -Path $PWD.Path -Filter "Sites_*.csv" -ErrorAction SilentlyContinue
-    if ($foundCsvs -and $foundCsvs.Count -gt 0) {
-        $targetCsv = $foundCsvs[0].FullName
-        Write-StatusMsg -Message "Detectado archivo CSV exportado del Admin Center: '$($foundCsvs[0].Name)'" -Status "INFO"
-    }
-}
-
-if ($targetCsv -and (Test-Path $targetCsv)) {
-    Write-StatusMsg -Message "Importando lista de sitios desde el CSV: '$targetCsv'..." -Status "WORKING"
+# C.2 Importar sitios desde CSV únicamente si se especifico el parametro -CsvPath
+if ([string]::IsNullOrWhiteSpace($CsvPath) -eq $false -and (Test-Path $CsvPath)) {
+    Write-StatusMsg -Message "Importando lista de sitios desde el CSV especificado: '$CsvPath'..." -Status "WORKING"
     try {
-        $csvContent = Import-Csv -Path $targetCsv -Delimiter ";" -ErrorAction SilentlyContinue
+        $csvContent = Import-Csv -Path $CsvPath -Delimiter ";" -ErrorAction SilentlyContinue
         if (-not $csvContent) {
-            $csvContent = Import-Csv -Path $targetCsv -Delimiter "," -ErrorAction SilentlyContinue
+            $csvContent = Import-Csv -Path $CsvPath -Delimiter "," -ErrorAction SilentlyContinue
         }
         if ($csvContent) {
             $csvLoadedCount = 0
@@ -1647,7 +1638,7 @@ if ($targetCsv -and (Test-Path $targetCsv)) {
             Write-StatusMsg -Message "Se han importado $csvLoadedCount sitios desde el CSV." -Status "SUCCESS"
         }
     } catch {
-        Write-StatusMsg -Message "Error al leer el archivo CSV '$targetCsv': $($_.Exception.Message)" -Status "WARN"
+        Write-StatusMsg -Message "Error al leer el archivo CSV '$CsvPath': $($_.Exception.Message)" -Status "WARN"
     }
 }
 
@@ -1805,13 +1796,69 @@ if ($targetSiteFilter) {
         Write-Host "  ----  ----------------------------------  ------------------------------  ----------------------------------" -ForegroundColor DarkGray
         Write-Host "  [ 0]  Auditar todos los sitios" -ForegroundColor Cyan
         Write-Host "  [ S]  Ingresar URL o nombre de sitio especifico (ej. /sites/Ventas o https://...)" -ForegroundColor Yellow
+        Write-Host "  [ C]  Cargar sitios desde un archivo CSV especifico" -ForegroundColor Green
         Write-Host "--------------------------------------------------------------------------------------------------------`n" -ForegroundColor Cyan
-        $userChoice = Read-Host "Elige una opcion (ej. 1,2,4,6 o 0 para todos, o 'S' para introducir URL) [0-$($generalSitesList.Count)]"
+        $userChoice = Read-Host "Elige una opcion (ej. 1,2,4,6 o 0 para todos, 'S' para URL, 'C' para CSV) [0-$($generalSitesList.Count)]"
 
         $trimmedChoice = if ($userChoice) { $userChoice.Trim() } else { "" }
+        $isCsvChoice = ($trimmedChoice.ToLower() -eq 'c' -or $trimmedChoice.ToLower() -eq 'csv' -or $trimmedChoice -like "*.csv")
         $isUrlOrCustom = ($trimmedChoice -like "http*" -or $trimmedChoice -like "/*" -or $trimmedChoice.ToLower() -eq 's' -or $trimmedChoice.ToLower() -eq 'url')
 
-        if ($isUrlOrCustom) {
+        if ($isCsvChoice) {
+            $inputCsvFile = ""
+            if ($trimmedChoice -like "*.csv") {
+                $inputCsvFile = $trimmedChoice
+            } else {
+                $inputCsvFile = Read-Host "`nIngrese el nombre o ruta del archivo CSV (ej. 'mis_sitios.csv')"
+            }
+
+            $resolvedCsvPath = if ([System.IO.Path]::IsPathRooted($inputCsvFile)) { $inputCsvFile } else { [System.IO.Path]::Combine($PWD.Path, $inputCsvFile) }
+            if (Test-Path $resolvedCsvPath) {
+                Write-StatusMsg -Message "Importando sitios desde el CSV: '$resolvedCsvPath'..." -Status "WORKING"
+                try {
+                    $csvData = Import-Csv -Path $resolvedCsvPath -Delimiter ";" -ErrorAction SilentlyContinue
+                    if (-not $csvData) { $csvData = Import-Csv -Path $resolvedCsvPath -Delimiter "," -ErrorAction SilentlyContinue }
+
+                    if ($csvData) {
+                        $csvSitesList = [System.Collections.Generic.List[PSCustomObject]]::new()
+                        foreach ($row in $csvData) {
+                            $sUrl = if ($row.URL) { $row.URL } elseif ($row.Url) { $row.Url } elseif ($row.'WebUrl') { $row.'WebUrl' } else { "" }
+                            $sTitle = if ($row.'Site name') { $row.'Site name' } elseif ($row.Title) { $row.Title } else { "" }
+                            if ($sUrl -and $sUrl -like "http*") {
+                                $cPath = ($sUrl -replace "https://[^/]+", "") -replace "^/sites/", "" -replace "^/", ""
+                                $gSite = $null
+                                if ($cPath) {
+                                    try { $gSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cPath" } catch {}
+                                }
+                                $siteObj = [PSCustomObject]@{
+                                    Id        = if ($gSite -and $gSite.id) { $gSite.id } else { $sUrl }
+                                    Title     = if ($sTitle) { $sTitle } elseif ($gSite -and $gSite.displayName) { $gSite.displayName } else { $cPath }
+                                    WebUrl    = $sUrl
+                                    SiteType  = "Sitio del CSV"
+                                    Category  = "General"
+                                    RawObject = $gSite
+                                }
+                                $csvSitesList.Add($siteObj)
+                            }
+                        }
+
+                        if ($csvSitesList.Count -gt 0) {
+                            foreach ($s in $csvSitesList) { $selectedGeneralSites.Add($s) }
+                            Write-StatusMsg -Message "Se han cargado correctamente $($selectedGeneralSites.Count) sitios desde el CSV." -Status "SUCCESS"
+                        } else {
+                            Write-StatusMsg -Message "No se encontraron URLs validas en el CSV. Auditando todos los sitios del tenant." -Status "WARN"
+                            foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+                        }
+                    }
+                } catch {
+                    Write-StatusMsg -Message "Error al leer el CSV '$resolvedCsvPath': $($_.Exception.Message). Auditando todos los sitios del tenant." -Status "WARN"
+                    foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+                }
+            } else {
+                Write-StatusMsg -Message "No se encontro el archivo CSV en '$resolvedCsvPath'. Auditando todos los sitios del tenant." -Status "WARN"
+                foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+            }
+        } elseif ($isUrlOrCustom) {
             $customSiteInput = ""
             if ($trimmedChoice.ToLower() -eq 's' -or $trimmedChoice.ToLower() -eq 'url') {
                 $customSiteInput = Read-Host "`nIngrese la URL o nombre exacto del sitio (ej. 'https://contoso.sharepoint.com/sites/Ventas' o 'Ventas')"
@@ -1858,6 +1905,16 @@ if ($targetSiteFilter) {
                     $matchedInList = $generalSitesList | Where-Object { $_.WebUrl -like "*$cleanFilter*" -or $_.Title -like "*$cleanFilter*" } | Select-Object -First 1
                     if ($matchedInList) {
                         $resolvedSite = $matchedInList
+                    } else {
+                        $fullUrl = if ($customSiteInput -like "http*") { $customSiteInput } else { "https://${tenantHostName}/sites/$cleanFilter" }
+                        $resolvedSite = [PSCustomObject]@{
+                            Id        = $fullUrl
+                            Title     = if ($cleanFilter) { $cleanFilter } else { "Sitio Especificado" }
+                            WebUrl    = $fullUrl
+                            SiteType  = "Sitio especifico por URL"
+                            Category  = "General"
+                            RawObject = $null
+                        }
                     }
                 }
 
