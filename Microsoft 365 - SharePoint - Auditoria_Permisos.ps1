@@ -52,6 +52,7 @@ param(
     [string]$ClientSecret = "",
     [string]$SiteUrl = "",
     [string]$SiteName = "",
+    [string]$CsvPath = "",
     [string]$HtmlOutputPath = ".\Reporte_Permisos_SharePoint.html",
     [int]$MaxFolderDepth = 5,
     [bool]$ExcludePersonalSites = $true,
@@ -150,6 +151,23 @@ function Get-SelectionIndices {
     }
 
     return $indices.ToArray()
+}
+
+# Limpiar acentos, diacriticos y caracteres especiales de nombres para formar la ruta URL en SharePoint
+function Clean-SitePath {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
+    $t = $Text.Normalize([System.Text.NormalizationForm]::FormD)
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($c in [char[]]$t) {
+        $uc = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($c)
+        if ($uc -ne [System.Globalization.UnicodeCategory]::NonSpacingMark) {
+            $sb.Append($c) | Out-Null
+        }
+    }
+    $clean = $sb.ToString().Normalize([System.Text.NormalizationForm]::FormC)
+    $clean = $clean -replace '[^a-zA-Z0-9_-]', ''
+    return $clean
 }
 
 Clear-Host
@@ -1521,22 +1539,29 @@ if ($targetSiteFilter) {
     }
 }
 
-# B. Consultar la API de busqueda de Graph iterando por letras y palabras clave
+# B. Consultar la API de busqueda de Graph (wildcard global y por palabras clave con $top=999)
 Write-StatusMsg -Message "Consultando el catalogo exhaustivo de sitios..." -Status "WORKING"
+try {
+    $wildcardRes = Invoke-GraphPaginatedRequest -Uri "v1.0/sites?search=*&`$top=999"
+    if ($wildcardRes) {
+        foreach ($item in $wildcardRes) { $allSitesRaw.Add($item) }
+    }
+} catch {}
+
 $searchTerms = 97..122 | ForEach-Object { [char]$_ }
 $searchTerms += 0..9 | ForEach-Object { [string]$_ }
 $searchTerms += @("msteams", "rrhh", "level", "fly", "test", "viva", "http", "administracion", "site")
 
 foreach ($term in $searchTerms) {
     try {
-        $res = Invoke-GraphPaginatedRequest -Uri "v1.0/sites?search=$term"
+        $res = Invoke-GraphPaginatedRequest -Uri "v1.0/sites?search=$term&`$top=999"
         if ($res) {
             foreach ($item in $res) { $allSitesRaw.Add($item) }
         }
     } catch {}
 }
 
-# C. Descubrir sitios asociados a grupos de M365 y teams
+# C. Descubrir sitios asociados a grupos de M365 y teams (con limpieza avanzada de acentos y caracteres)
 Write-StatusMsg -Message "Buscando sitios asociados a teams y grupos de Microsoft 365..." -Status "WORKING"
 try {
     $m365Groups = Invoke-GraphPaginatedRequest -Uri "v1.0/groups?`$top=999"
@@ -1549,7 +1574,9 @@ try {
             } catch {}
 
             if (-not $groupSite) {
-                $possibleNames = @($grp.mailNickname, $grp.displayName)
+                $cleanName1 = Clean-SitePath -Text $grp.mailNickname
+                $cleanName2 = Clean-SitePath -Text $grp.displayName
+                $possibleNames = @($grp.mailNickname, $grp.displayName, $cleanName1, $cleanName2) | Select-Object -Unique
                 foreach ($name in $possibleNames) {
                     if ($name) {
                         try {
@@ -1572,6 +1599,57 @@ try {
         }
     }
 } catch {}
+
+# C.2 Importar sitios desde CSV (si se especifico -CsvPath o si existe Sites_*.csv en directorio actual)
+$targetCsv = $CsvPath
+if (-not $targetCsv) {
+    $foundCsvs = Get-ChildItem -Path $PWD.Path -Filter "Sites_*.csv" -ErrorAction SilentlyContinue
+    if ($foundCsvs -and $foundCsvs.Count -gt 0) {
+        $targetCsv = $foundCsvs[0].FullName
+        Write-StatusMsg -Message "Detectado archivo CSV exportado del Admin Center: '$($foundCsvs[0].Name)'" -Status "INFO"
+    }
+}
+
+if ($targetCsv -and (Test-Path $targetCsv)) {
+    Write-StatusMsg -Message "Importando lista de sitios desde el CSV: '$targetCsv'..." -Status "WORKING"
+    try {
+        $csvContent = Import-Csv -Path $targetCsv -Delimiter ";" -ErrorAction SilentlyContinue
+        if (-not $csvContent) {
+            $csvContent = Import-Csv -Path $targetCsv -Delimiter "," -ErrorAction SilentlyContinue
+        }
+        if ($csvContent) {
+            $csvLoadedCount = 0
+            foreach ($row in $csvContent) {
+                $siteUrlVal = if ($row.URL) { $row.URL } elseif ($row.Url) { $row.Url } elseif ($row.'WebUrl') { $row.'WebUrl' } else { "" }
+                $siteNameVal = if ($row.'Site name') { $row.'Site name' } elseif ($row.Title) { $row.Title } else { "" }
+
+                if ($siteUrlVal -and $siteUrlVal -like "http*") {
+                    $cleanPath = ($siteUrlVal -replace "https://[^/]+", "") -replace "^/sites/", "" -replace "^/", ""
+                    $csvSite = $null
+                    if ($cleanPath) {
+                        try {
+                            $csvSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanPath"
+                        } catch {}
+                    }
+                    if (-not $csvSite) {
+                        $csvSite = [PSCustomObject]@{
+                            id        = $siteUrlVal
+                            displayName = if ($siteNameVal) { $siteNameVal } else { $cleanPath }
+                            webUrl    = $siteUrlVal
+                        }
+                    }
+                    if ($csvSite) {
+                        $allSitesRaw.Add($csvSite)
+                        $csvLoadedCount++
+                    }
+                }
+            }
+            Write-StatusMsg -Message "Se han importado $csvLoadedCount sitios desde el CSV." -Status "SUCCESS"
+        }
+    } catch {
+        Write-StatusMsg -Message "Error al leer el archivo CSV '$targetCsv': $($_.Exception.Message)" -Status "WARN"
+    }
+}
 
 # D. Resolucion directa de rutas conocidas del tenant
 $knownSitePaths = @("rrhh", "test", "administracion", "msteams_f72f18_083716")
@@ -1726,22 +1804,89 @@ if ($targetSiteFilter) {
 
         Write-Host "  ----  ----------------------------------  ------------------------------  ----------------------------------" -ForegroundColor DarkGray
         Write-Host "  [ 0]  Auditar todos los sitios" -ForegroundColor Cyan
+        Write-Host "  [ S]  Ingresar URL o nombre de sitio especifico (ej. /sites/Ventas o https://...)" -ForegroundColor Yellow
         Write-Host "--------------------------------------------------------------------------------------------------------`n" -ForegroundColor Cyan
-        $userChoice = Read-Host "Elige una opcion o varias separadas por comas (ej. 1,2,4,6 o 1-3, o 0 para todos) [0-$($generalSitesList.Count)]"
+        $userChoice = Read-Host "Elige una opcion (ej. 1,2,4,6 o 0 para todos, o 'S' para introducir URL) [0-$($generalSitesList.Count)]"
 
-        $chosenIndices = Get-SelectionIndices -InputString $userChoice -MaxRange $generalSitesList.Count -AllowZeroForAll $true
+        $trimmedChoice = if ($userChoice) { $userChoice.Trim() } else { "" }
+        $isUrlOrCustom = ($trimmedChoice -like "http*" -or $trimmedChoice -like "/*" -or $trimmedChoice.ToLower() -eq 's' -or $trimmedChoice.ToLower() -eq 'url')
 
-        if ($chosenIndices.Count -eq 1 -and $chosenIndices[0] -eq 0) {
-            Write-StatusMsg -Message "Opcion elegida: Auditar todos los sitios." -Status "SUCCESS"
-            foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
-        } else {
-            $selectedTitles = @()
-            foreach ($idx in $chosenIndices) {
-                $selectedObj = $generalSitesList[$idx - 1]
-                $selectedGeneralSites.Add($selectedObj)
-                $selectedTitles += "'$($selectedObj.Title)'"
+        if ($isUrlOrCustom) {
+            $customSiteInput = ""
+            if ($trimmedChoice.ToLower() -eq 's' -or $trimmedChoice.ToLower() -eq 'url') {
+                $customSiteInput = Read-Host "`nIngrese la URL o nombre exacto del sitio (ej. 'https://contoso.sharepoint.com/sites/Ventas' o 'Ventas')"
+            } else {
+                $customSiteInput = $trimmedChoice
             }
-            Write-StatusMsg -Message "Sitio(s) elegido(s) ($($selectedGeneralSites.Count)): $($selectedTitles -join ', ')" -Status "SUCCESS"
+
+            if (-not [string]::IsNullOrWhiteSpace($customSiteInput)) {
+                Write-StatusMsg -Message "Resolviendo sitio especifico '$customSiteInput'..." -Status "WORKING"
+                $targetHost = $tenantHostName
+                $cleanFilter = $customSiteInput.Trim()
+                if ($cleanFilter -match "https://([^/]+)/sites/(.*)") {
+                    $targetHost = $Matches[1]
+                    $cleanFilter = $Matches[2]
+                } elseif ($cleanFilter -match "https://([^/]+)") {
+                    $targetHost = $Matches[1]
+                    $cleanFilter = ""
+                } else {
+                    $cleanFilter = ($cleanFilter -replace "^/sites/", "") -replace "^/", ""
+                }
+
+                $resolvedSite = $null
+                if ($cleanFilter) {
+                    try {
+                        $directSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${targetHost}:/sites/$cleanFilter"
+                        if ($directSite -and ($directSite.id -or $directSite.webUrl)) {
+                            $webUrl = if ($directSite.webUrl) { $directSite.webUrl } else { $directSite.WebUrl }
+                            $title = if ($directSite.displayName) { $directSite.displayName } else { $cleanFilter }
+                            $siteId = if ($directSite.id) { $directSite.id } else { $directSite.Id }
+                            $classInfo = Get-SiteClassification -WebUrl $webUrl -Title $title -IsM365Group $false
+                            $resolvedSite = [PSCustomObject]@{
+                                Id        = $siteId
+                                Title     = $title
+                                WebUrl    = $webUrl
+                                SiteType  = $classInfo.SiteType
+                                Category  = $classInfo.Category
+                                RawObject = $directSite
+                            }
+                        }
+                    } catch {}
+                }
+
+                if (-not $resolvedSite) {
+                    $matchedInList = $generalSitesList | Where-Object { $_.WebUrl -like "*$cleanFilter*" -or $_.Title -like "*$cleanFilter*" } | Select-Object -First 1
+                    if ($matchedInList) {
+                        $resolvedSite = $matchedInList
+                    }
+                }
+
+                if ($resolvedSite) {
+                    $selectedGeneralSites.Add($resolvedSite)
+                    Write-StatusMsg -Message "Sitio especifico seleccionado: '$($resolvedSite.Title)' ($($resolvedSite.WebUrl))" -Status "SUCCESS"
+                } else {
+                    Write-StatusMsg -Message "No se pudo encontrar el sitio '$customSiteInput'. Se auditaran todos los sitios." -Status "WARN"
+                    foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+                }
+            } else {
+                Write-StatusMsg -Message "Entrada vacia. Se auditaran todos los sitios." -Status "WARN"
+                foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+            }
+        } else {
+            $chosenIndices = Get-SelectionIndices -InputString $userChoice -MaxRange $generalSitesList.Count -AllowZeroForAll $true
+
+            if ($chosenIndices.Count -eq 1 -and $chosenIndices[0] -eq 0) {
+                Write-StatusMsg -Message "Opcion elegida: Auditar todos los sitios." -Status "SUCCESS"
+                foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+            } else {
+                $selectedTitles = @()
+                foreach ($idx in $chosenIndices) {
+                    $selectedObj = $generalSitesList[$idx - 1]
+                    $selectedGeneralSites.Add($selectedObj)
+                    $selectedTitles += "'$($selectedObj.Title)'"
+                }
+                Write-StatusMsg -Message "Sitio(s) elegido(s) ($($selectedGeneralSites.Count)): $($selectedTitles -join ', ')" -Status "SUCCESS"
+            }
         }
     }
 }

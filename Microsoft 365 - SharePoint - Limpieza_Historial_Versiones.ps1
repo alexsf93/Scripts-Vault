@@ -328,7 +328,7 @@ if (-not $TargetSite) {
     }
     
     Write-Host "`nSitios disponibles:" -ForegroundColor Yellow
-    $MaxShow = [Math]::Min(20, $AllSites.Count)
+    $MaxShow = $AllSites.Count
     for ($i = 0; $i -lt $MaxShow; $i++) {
         Write-Host (" [{0,2}] {1} ({2})" -f ($i + 1), $AllSites[$i].displayName, $AllSites[$i].webUrl) -ForegroundColor White
     }
