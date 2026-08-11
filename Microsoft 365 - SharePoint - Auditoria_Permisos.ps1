@@ -101,6 +101,57 @@ function Write-StatusMsg {
     }
 }
 
+# Parseador de indices de seleccion (soporta numeros individuales, comas '1,2,4,6', rangos '1-3,5' y '0' para todo)
+function Get-SelectionIndices {
+    param(
+        [string]$InputString,
+        [int]$MaxRange,
+        [bool]$AllowZeroForAll = $true
+    )
+
+    if ([string]::IsNullOrWhiteSpace($InputString)) {
+        if ($AllowZeroForAll) { return @(0) }
+        return @()
+    }
+
+    $rawTokens = $InputString -split ','
+    $indices = [System.Collections.Generic.List[int]]::new()
+    $hasZero = $false
+
+    foreach ($token in $rawTokens) {
+        $t = $token.Trim()
+        if ([string]::IsNullOrWhiteSpace($t)) { continue }
+
+        if ($t -eq "0") {
+            $hasZero = $true
+            break
+        }
+
+        if ($t -match '^(\d+)\s*-\s*(\d+)$') {
+            $start = [int]$Matches[1]
+            $end = [int]$Matches[2]
+            if ($start -gt $end) { $tmp = $start; $start = $end; $end = $tmp }
+            for ($i = $start; $i -le $end; $i++) {
+                if ($i -ge 1 -and $i -le $MaxRange -and -not $indices.Contains($i)) {
+                    $indices.Add($i)
+                }
+            }
+        }
+        elseif ($t -match '^\d+$') {
+            $val = [int]$t
+            if ($val -ge 1 -and $val -le $MaxRange -and -not $indices.Contains($val)) {
+                $indices.Add($val)
+            }
+        }
+    }
+
+    if ($hasZero -or ($indices.Count -eq 0 -and $AllowZeroForAll)) {
+        return @(0)
+    }
+
+    return $indices.ToArray()
+}
+
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host " Auditoria de permisos de spo" -ForegroundColor Cyan
@@ -1416,8 +1467,20 @@ function Export-PermissionsToHtml {
 </html>
 "@
 
-    [System.IO.File]::WriteAllText($FilePath, $htmlContent, [System.Text.Encoding]::UTF8)
-    Write-StatusMsg -Message "Informe HTML guardado en: $FilePath" -Status "SUCCESS"
+    $resolvedPath = if ([System.IO.Path]::IsPathRooted($FilePath)) {
+        $FilePath
+    } else {
+        [System.IO.Path]::Combine($PWD.Path, $FilePath)
+    }
+
+    [System.IO.File]::WriteAllText($resolvedPath, $htmlContent, [System.Text.Encoding]::UTF8)
+    Write-StatusMsg -Message "Informe HTML guardado en la ruta absoluta: $resolvedPath" -Status "SUCCESS"
+
+    if ($env:ACC_CLOUD_SHELL -or $env:AZURE_HTTP_USER_AGENT -or ($PSVersionTable.Platform -eq 'Unix')) {
+        Write-Host "  [i] Entorno Azure Cloud Shell / Linux detectado." -ForegroundColor Cyan
+        Write-Host "      Para descargar el reporte HTML a tu equipo local, ejecuta en Cloud Shell:" -ForegroundColor Cyan
+        Write-Host "      download `"$resolvedPath`"`n" -ForegroundColor Yellow
+    }
 }
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -1664,16 +1727,21 @@ if ($targetSiteFilter) {
         Write-Host "  ----  ----------------------------------  ------------------------------  ----------------------------------" -ForegroundColor DarkGray
         Write-Host "  [ 0]  Auditar todos los sitios" -ForegroundColor Cyan
         Write-Host "--------------------------------------------------------------------------------------------------------`n" -ForegroundColor Cyan
+        $userChoice = Read-Host "Elige una opcion o varias separadas por comas (ej. 1,2,4,6 o 1-3, o 0 para todos) [0-$($generalSitesList.Count)]"
 
-        $userChoice = Read-Host "Elige una opcion [0-$($generalSitesList.Count)]"
+        $chosenIndices = Get-SelectionIndices -InputString $userChoice -MaxRange $generalSitesList.Count -AllowZeroForAll $true
 
-        if ($userChoice -match '^\d+$' -and [int]$userChoice -ge 1 -and [int]$userChoice -le $generalSitesList.Count) {
-            $selectedIndex = [int]$userChoice - 1
-            $selectedGeneralSites.Add($generalSitesList[$selectedIndex])
-            Write-StatusMsg -Message "Sitio elegido: '$($selectedGeneralSites[0].Title)'" -Status "SUCCESS"
-        } else {
+        if ($chosenIndices.Count -eq 1 -and $chosenIndices[0] -eq 0) {
             Write-StatusMsg -Message "Opcion elegida: Auditar todos los sitios." -Status "SUCCESS"
             foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+        } else {
+            $selectedTitles = @()
+            foreach ($idx in $chosenIndices) {
+                $selectedObj = $generalSitesList[$idx - 1]
+                $selectedGeneralSites.Add($selectedObj)
+                $selectedTitles += "'$($selectedObj.Title)'"
+            }
+            Write-StatusMsg -Message "Sitio(s) elegido(s) ($($selectedGeneralSites.Count)): $($selectedTitles -join ', ')" -Status "SUCCESS"
         }
     }
 }

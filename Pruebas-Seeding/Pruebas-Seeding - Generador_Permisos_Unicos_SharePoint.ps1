@@ -79,6 +79,57 @@ function Write-StatusMsg {
     }
 }
 
+# Parseador de indices de seleccion (soporta numeros individuales, comas '1,2,4,6', rangos '1-3,5' y '0' para todo)
+function Get-SelectionIndices {
+    param(
+        [string]$InputString,
+        [int]$MaxRange,
+        [bool]$AllowZeroForAll = $true
+    )
+
+    if ([string]::IsNullOrWhiteSpace($InputString)) {
+        if ($AllowZeroForAll) { return @(0) }
+        return @()
+    }
+
+    $rawTokens = $InputString -split ','
+    $indices = [System.Collections.Generic.List[int]]::new()
+    $hasZero = $false
+
+    foreach ($token in $rawTokens) {
+        $t = $token.Trim()
+        if ([string]::IsNullOrWhiteSpace($t)) { continue }
+
+        if ($t -eq "0") {
+            $hasZero = $true
+            break
+        }
+
+        if ($t -match '^(\d+)\s*-\s*(\d+)$') {
+            $start = [int]$Matches[1]
+            $end = [int]$Matches[2]
+            if ($start -gt $end) { $tmp = $start; $start = $end; $end = $tmp }
+            for ($i = $start; $i -le $end; $i++) {
+                if ($i -ge 1 -and $i -le $MaxRange -and -not $indices.Contains($i)) {
+                    $indices.Add($i)
+                }
+            }
+        }
+        elseif ($t -match '^\d+$') {
+            $val = [int]$t
+            if ($val -ge 1 -and $val -le $MaxRange -and -not $indices.Contains($val)) {
+                $indices.Add($val)
+            }
+        }
+    }
+
+    if ($hasZero -or ($indices.Count -eq 0 -and $AllowZeroForAll)) {
+        return @(0)
+    }
+
+    return $indices.ToArray()
+}
+
 function Invoke-MgGraphWithRetry {
     param(
         [string]$Method,
@@ -221,12 +272,9 @@ if (-not $TargetSite) {
     }
     
     $Selection = Read-Host "`nIngrese el numero del sitio objetivo (1-$MaxShow)"
-    $ParsedIndex = 0
-    if ([int]::TryParse($Selection, [ref]$ParsedIndex)) {
-        $Index = $ParsedIndex - 1
-        if ($Index -ge 0 -and $Index -lt $AllSites.Count) {
-            $TargetSite = $AllSites[$Index]
-        }
+    $chosenIndices = Get-SelectionIndices -InputString $Selection -MaxRange $MaxShow -AllowZeroForAll $false
+    if ($chosenIndices.Count -gt 0) {
+        $TargetSite = $AllSites[$chosenIndices[0] - 1]
     }
     
     if (-not $TargetSite) {

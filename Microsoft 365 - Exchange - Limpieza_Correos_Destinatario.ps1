@@ -868,8 +868,14 @@ try {
 </html>
 "@
 
-    [System.IO.File]::WriteAllText($HtmlOutputPath, $HtmlContent, [System.Text.Encoding]::UTF8)
-    Write-StatusMsg "Reporte HTML de auditoria guardado en: '$HtmlOutputPath'" -Status "SUCCESS"
+    $resolvedHtmlPath = if ([System.IO.Path]::IsPathRooted($HtmlOutputPath)) { $HtmlOutputPath } else { [System.IO.Path]::Combine($PWD.Path, $HtmlOutputPath) }
+    [System.IO.File]::WriteAllText($resolvedHtmlPath, $HtmlContent, [System.Text.Encoding]::UTF8)
+    Write-StatusMsg "Reporte HTML de auditoria guardado en la ruta absoluta: '$resolvedHtmlPath'" -Status "SUCCESS"
+
+    if ($env:ACC_CLOUD_SHELL -or $env:AZURE_HTTP_USER_AGENT -or ($PSVersionTable.Platform -eq 'Unix')) {
+        Write-Host "  [i] Entorno Azure Cloud Shell / Linux detectado. Para descargar a tu equipo local:" -ForegroundColor Cyan
+        Write-Host "      download `"$resolvedHtmlPath`"`n" -ForegroundColor Yellow
+    }
 } catch {
     Write-StatusMsg "No se pudo generar el reporte HTML previo: $_" -Status "WARN"
 }
@@ -1368,8 +1374,14 @@ try {
 </html>
 "@
 
-    [System.IO.File]::WriteAllText($DeletionHtmlPath, $PostHtmlContent, [System.Text.Encoding]::UTF8)
-    Write-StatusMsg "Informe HTML final post-limpieza generado en: '$DeletionHtmlPath'" -Status "SUCCESS"
+    $resolvedDelPath = if ([System.IO.Path]::IsPathRooted($DeletionHtmlPath)) { $DeletionHtmlPath } else { [System.IO.Path]::Combine($PWD.Path, $DeletionHtmlPath) }
+    [System.IO.File]::WriteAllText($resolvedDelPath, $PostHtmlContent, [System.Text.Encoding]::UTF8)
+    Write-StatusMsg "Informe HTML final post-limpieza generado en la ruta absoluta: '$resolvedDelPath'" -Status "SUCCESS"
+
+    if ($env:ACC_CLOUD_SHELL -or $env:AZURE_HTTP_USER_AGENT -or ($PSVersionTable.Platform -eq 'Unix')) {
+        Write-Host "  [i] Entorno Azure Cloud Shell / Linux detectado. Para descargar a tu equipo local:" -ForegroundColor Cyan
+        Write-Host "      download `"$resolvedDelPath`"`n" -ForegroundColor Yellow
+    }
 } catch {
     Write-StatusMsg "No se pudo generar el reporte HTML post-limpieza: $_" -Status "WARN"
 }

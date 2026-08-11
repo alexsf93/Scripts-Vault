@@ -108,6 +108,57 @@ function Write-StatusMsg {
     }
 }
 
+# Parseador de indices de seleccion (soporta numeros individuales, comas '1,2,4,6', rangos '1-3,5' y '0' para todo)
+function Get-SelectionIndices {
+    param(
+        [string]$InputString,
+        [int]$MaxRange,
+        [bool]$AllowZeroForAll = $true
+    )
+
+    if ([string]::IsNullOrWhiteSpace($InputString)) {
+        if ($AllowZeroForAll) { return @(0) }
+        return @()
+    }
+
+    $rawTokens = $InputString -split ','
+    $indices = [System.Collections.Generic.List[int]]::new()
+    $hasZero = $false
+
+    foreach ($token in $rawTokens) {
+        $t = $token.Trim()
+        if ([string]::IsNullOrWhiteSpace($t)) { continue }
+
+        if ($t -eq "0") {
+            $hasZero = $true
+            break
+        }
+
+        if ($t -match '^(\d+)\s*-\s*(\d+)$') {
+            $start = [int]$Matches[1]
+            $end = [int]$Matches[2]
+            if ($start -gt $end) { $tmp = $start; $start = $end; $end = $tmp }
+            for ($i = $start; $i -le $end; $i++) {
+                if ($i -ge 1 -and $i -le $MaxRange -and -not $indices.Contains($i)) {
+                    $indices.Add($i)
+                }
+            }
+        }
+        elseif ($t -match '^\d+$') {
+            $val = [int]$t
+            if ($val -ge 1 -and $val -le $MaxRange -and -not $indices.Contains($val)) {
+                $indices.Add($val)
+            }
+        }
+    }
+
+    if ($hasZero -or ($indices.Count -eq 0 -and $AllowZeroForAll)) {
+        return @(0)
+    }
+
+    return $indices.ToArray()
+}
+
 # Formatear bytes a legibles (KB, MB, GB)
 function Format-Bytes {
     param([int64]$Bytes)
@@ -339,21 +390,18 @@ if ($LibraryName) {
         Write-Host (" [{0,2}] {1}" -f ($i + 1), $DocDrives[$i].name) -ForegroundColor White
     }
     
-    $LibChoice = Read-Host "`nSeleccione la biblioteca a auditar (0 para TODAS)"
-    $ParsedLibChoice = 0
-    if ($LibChoice -eq "0" -or [string]::IsNullOrWhiteSpace($LibChoice)) {
+    $LibChoice = Read-Host "`nSeleccione la biblioteca a auditar (varias separadas por comas ej. 1,2 o 1-3, o 0 para TODAS)"
+    $chosenLibIndices = Get-SelectionIndices -InputString $LibChoice -MaxRange $DocDrives.Count -AllowZeroForAll $true
+
+    if ($chosenLibIndices.Count -eq 1 -and $chosenLibIndices[0] -eq 0) {
         $SelectedDrives = $DocDrives
-    } elseif ([int]::TryParse($LibChoice, [ref]$ParsedLibChoice)) {
-        $LibIdx = $ParsedLibChoice - 1
-        if ($LibIdx -ge 0 -and $LibIdx -lt $DocDrives.Count) {
-            $SelectedDrives = @($DocDrives[$LibIdx])
-        } else {
-            Write-StatusMsg "Seleccion invalida. Procesando todas las bibliotecas." -Status "WARN"
-            $SelectedDrives = $DocDrives
-        }
+        Write-StatusMsg "Procesando TODAS las bibliotecas del sitio." -Status "INFO"
     } else {
-        Write-StatusMsg "Opcion no numerica. Procesando todas las bibliotecas." -Status "WARN"
-        $SelectedDrives = $DocDrives
+        $SelectedDrives = @()
+        foreach ($idx in $chosenLibIndices) {
+            $SelectedDrives += $DocDrives[$idx - 1]
+        }
+        Write-StatusMsg "Bibliotecas seleccionadas ($($SelectedDrives.Count)): $(($SelectedDrives.name) -join ', ')" -Status "SUCCESS"
     }
 }
 
@@ -932,8 +980,14 @@ try {
 "@
 
     $utf8Encoding = [System.Text.UTF8Encoding]::new($true)
-    [System.IO.File]::WriteAllText($HtmlOutputPath, $HtmlContent, $utf8Encoding)
-    Write-StatusMsg "Reporte HTML guardado correctamente en: '$HtmlOutputPath'" -Status "SUCCESS"
+    $resolvedHtmlPath = if ([System.IO.Path]::IsPathRooted($HtmlOutputPath)) { $HtmlOutputPath } else { [System.IO.Path]::Combine($PWD.Path, $HtmlOutputPath) }
+    [System.IO.File]::WriteAllText($resolvedHtmlPath, $HtmlContent, $utf8Encoding)
+    Write-StatusMsg "Reporte HTML guardado correctamente en la ruta absoluta: '$resolvedHtmlPath'" -Status "SUCCESS"
+
+    if ($env:ACC_CLOUD_SHELL -or $env:AZURE_HTTP_USER_AGENT -or ($PSVersionTable.Platform -eq 'Unix')) {
+        Write-Host "  [i] Entorno Azure Cloud Shell / Linux detectado. Para descargar a tu equipo local:" -ForegroundColor Cyan
+        Write-Host "      download `"$resolvedHtmlPath`"`n" -ForegroundColor Yellow
+    }
 } catch {
     Write-StatusMsg "No se pudo generar el reporte HTML de auditoria: $_" -Status "WARN"
 }
@@ -1442,8 +1496,14 @@ try {
 "@
 
     $utf8Encoding = [System.Text.UTF8Encoding]::new($true)
-    [System.IO.File]::WriteAllText($DeletionHtmlPath, $PostHtmlContent, $utf8Encoding)
-    Write-StatusMsg "Informe HTML post-limpieza generado en: '$DeletionHtmlPath'" -Status "SUCCESS"
+    $resolvedDelPath = if ([System.IO.Path]::IsPathRooted($DeletionHtmlPath)) { $DeletionHtmlPath } else { [System.IO.Path]::Combine($PWD.Path, $DeletionHtmlPath) }
+    [System.IO.File]::WriteAllText($resolvedDelPath, $PostHtmlContent, $utf8Encoding)
+    Write-StatusMsg "Informe HTML post-limpieza generado en la ruta absoluta: '$resolvedDelPath'" -Status "SUCCESS"
+
+    if ($env:ACC_CLOUD_SHELL -or $env:AZURE_HTTP_USER_AGENT -or ($PSVersionTable.Platform -eq 'Unix')) {
+        Write-Host "  [i] Entorno Azure Cloud Shell / Linux detectado. Para descargar a tu equipo local:" -ForegroundColor Cyan
+        Write-Host "      download `"$resolvedDelPath`"`n" -ForegroundColor Yellow
+    }
 } catch {
     Write-StatusMsg "No se pudo generar el informe HTML post-limpieza: $_" -Status "WARN"
 }
