@@ -1,12 +1,14 @@
 <#
 .SYNOPSIS
-    SharePoint online - Auditoria y limpieza del historial de versiones con Microsoft graph api (v1.2.0).
+    SharePoint online - Auditoria y limpieza del historial de versiones con Microsoft graph api (v1.3.0).
 
 .DESCRIPTION
     Script de administracion para SharePoint online que escanea bibliotecas de documentos,
     analiza el uso de espacio en disco por el historial de versiones de los archivos,
+    permite seleccion interactiva simple o multiple de sitios y bibliotecas ('1,2,4' / '1-3' / '0'),
     calcula la cantidad exacta de espacio en MB/GB que se recuperara al conservar solo las N ultimas versiones
-    (por defecto: 2), genera reportes HTML corporativos interactivos a pantalla completa estilo SharePoint online & fluent ui,
+    (por defecto: 2), genera reportes HTML corporativos interactivos a pantalla completa estilo SharePoint online & fluent ui
+    con soporte para resolucion de rutas absolutas y descarga en Azure Cloud Shell,
     y permite realizar el borrado seguro e interactivo de las versiones obsoletas.
 
 .PARAMETER TenantId
@@ -25,7 +27,7 @@
     Alias para -SiteUrl.
 
 .PARAMETER LibraryName
-    Nombre de una biblioteca especifica a auditar (ej. "Documentos"). Si se omite, permite seleccionar o auditar todas.
+    Nombre de una biblioteca especifica a auditar (ej. "Documentos"). Si se omite, permite seleccionar una o varias bibliotecas.
 
 .PARAMETER KeepVersions
     Numero maximo de versiones recientes a conservar por cada archivo (por defecto: 2).
@@ -54,8 +56,8 @@
 .NOTES
     Nombre:   Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1
     Autor:    Alejandro Suarez (@alexsf93)
-    Version:  1.2.0
-    Fecha:    2026-08-10
+    Version:  1.3.0
+    Fecha:    2026-08-11
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]

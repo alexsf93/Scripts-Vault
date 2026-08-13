@@ -1,13 +1,15 @@
 <#
 .SYNOPSIS
-    SharePoint online - Auditoria de permisos en sitios, subsitios y carpetas con Microsoft graph (v3.7.0)
+    SharePoint online - Auditoria de permisos en sitios, subsitios y carpetas con Microsoft graph (v3.8.0)
 
 .DESCRIPTION
     Script de auditoria de permisos para SharePoint online.
-    Permite seleccionar un sitio general por pantalla o mediante parametros,
-    y analiza la raiz, los subsitios y las carpetas con permisos unicos (ruptura de herencia).
+    Permite seleccionar sitios generales por pantalla (soporta seleccion multiple '1,2,4,6', rangos '1-3', o '0' para todos),
+    por URL especifica ('[S]' o '-SiteUrl'), o importando una lista CSV desde el Admin Center ('[C]' o '-CsvPath').
+    Analiza la raiz, los subsitios y las carpetas con permisos unicos (ruptura de herencia).
     Desglosa grupos de SharePoint, Entra id y M365 hasta llegar a usuarios individuales.
-    Genera un informe HTML interactivo corporativo estilo Microsoft sharepoint & fluent ui con vista por sitio y matriz por usuario.
+    Genera un informe HTML interactivo corporativo estilo Microsoft sharepoint & fluent ui con vista por sitio y matriz por usuario,
+    con soporte nativo para resolucion de rutas absolutas y descarga directa en Azure Cloud Shell.
 
 .PARAMETER TenantId
     ID o dominio del tenant de Microsoft 365.
@@ -24,6 +26,9 @@
 .PARAMETER SiteName
     Alias para -SiteUrl. Nombre o filtro del sitio objetivo.
 
+.PARAMETER CsvPath
+    Ruta opcional a un archivo CSV exportado desde el Centro de Administracion de SharePoint para auditar todos sus sitios.
+
 .PARAMETER HtmlOutputPath
     Ruta del informe HTML de salida. Por defecto: ".\Reporte_Permisos_SharePoint.html"
 
@@ -34,16 +39,16 @@
     & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1'
 
 .EXAMPLE
-    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1' -SiteUrl "Administracion"
+    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1' -SiteUrl "https://contoso.sharepoint.com/sites/Administracion"
 
 .EXAMPLE
-    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1' -SiteUrl "https://contoso.sharepoint.com/sites/Administracion" -HtmlOutputPath ".\Auditoria_Administracion.html"
+    & '.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1' -CsvPath ".\Sites_20260811081448097.csv" -HtmlOutputPath ".\Reporte_Permisos_Tenant.html"
 
 .NOTES
     Nombre:   Microsoft 365 - SharePoint - Auditoria_Permisos.ps1
     Autor:    Alejandro Suarez (@alexsf93)
-    Version:  3.7.0
-    Fecha:    2026-08-10
+    Version:  3.8.0
+    Fecha:    2026-08-11
 #>
 
 param(
@@ -168,6 +173,47 @@ function Clean-SitePath {
     $clean = $sb.ToString().Normalize([System.Text.NormalizationForm]::FormC)
     $clean = $clean -replace '[^a-zA-Z0-9_-]', ''
     return $clean
+}
+
+# Extraer valores de columnas CSV sin importar codificacion, BOM o comillas
+function Get-CsvRowValue {
+    param(
+        [PSCustomObject]$Row,
+        [string[]]$PossibleKeys
+    )
+    if (-not $Row) { return "" }
+    foreach ($prop in $Row.PSObject.Properties) {
+        $cleanPropName = ($prop.Name -replace '[^\x20-\x7E]', '').Trim('"').Trim("'").Trim()
+        foreach ($key in $PossibleKeys) {
+            if ($cleanPropName -eq $key -or $prop.Name -eq $key -or $cleanPropName -like "*$key*") {
+                if (-not [string]::IsNullOrWhiteSpace($prop.Value)) {
+                    return $prop.Value.Trim()
+                }
+            }
+        }
+    }
+    return ""
+}
+
+# Formatear la identificacion del sitio para Graph API (soporta ID unico, URL completa o ruta relativa)
+function Format-GraphSiteIdentifier {
+    param(
+        [string]$InputIdOrUrl,
+        [string]$TenantHost = $tenantHostName
+    )
+    if ([string]::IsNullOrWhiteSpace($InputIdOrUrl)) { return "" }
+    if ($InputIdOrUrl -match "^[^,]+,[^,]+,[^,]+$") {
+        return $InputIdOrUrl
+    }
+    if ($InputIdOrUrl -match "https://([^/]+)(/sites/[^/]+|/teams/[^/]+|/.*)") {
+        $h = $Matches[1]
+        $p = $Matches[2].TrimEnd('/')
+        if (-not $p) { return "${h}:/:" }
+        return "${h}:${p}:"
+    }
+    $cleanP = ($InputIdOrUrl -replace "^/sites/", "") -replace "^/", ""
+    if (-not $cleanP) { return "${TenantHost}:/:" }
+    return "${TenantHost}:/sites/${cleanP}:"
 }
 
 Clear-Host
@@ -1611,28 +1657,29 @@ if ([string]::IsNullOrWhiteSpace($CsvPath) -eq $false -and (Test-Path $CsvPath))
         if ($csvContent) {
             $csvLoadedCount = 0
             foreach ($row in $csvContent) {
-                $siteUrlVal = if ($row.URL) { $row.URL } elseif ($row.Url) { $row.Url } elseif ($row.'WebUrl') { $row.'WebUrl' } else { "" }
-                $siteNameVal = if ($row.'Site name') { $row.'Site name' } elseif ($row.Title) { $row.Title } else { "" }
+                $siteUrlVal = Get-CsvRowValue -Row $row -PossibleKeys @("URL", "WebUrl", "Url")
+                $siteNameVal = Get-CsvRowValue -Row $row -PossibleKeys @("Site name", "Title", "Name", "Nombre")
 
                 if ($siteUrlVal -and $siteUrlVal -like "http*") {
                     $cleanPath = ($siteUrlVal -replace "https://[^/]+", "") -replace "^/sites/", "" -replace "^/", ""
                     $csvSite = $null
                     if ($cleanPath) {
-                        try {
-                            $csvSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanPath"
-                        } catch {}
-                    }
-                    if (-not $csvSite) {
-                        $csvSite = [PSCustomObject]@{
-                            id        = $siteUrlVal
-                            displayName = if ($siteNameVal) { $siteNameVal } else { $cleanPath }
-                            webUrl    = $siteUrlVal
+                        try { $csvSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanPath" } catch {}
+                        if (-not $csvSite) {
+                            $cleanP = Clean-SitePath -Text $cleanPath
+                            if ($cleanP) {
+                                try { $csvSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanP" } catch {}
+                            }
                         }
                     }
-                    if ($csvSite) {
-                        $allSitesRaw.Add($csvSite)
-                        $csvLoadedCount++
+                    $graphId = if ($csvSite -and $csvSite.id) { $csvSite.id } else { Format-GraphSiteIdentifier -InputIdOrUrl $siteUrlVal }
+                    $siteObj = [PSCustomObject]@{
+                        id          = $graphId
+                        displayName = if ($siteNameVal) { $siteNameVal } elseif ($csvSite -and $csvSite.displayName) { $csvSite.displayName } else { $cleanPath }
+                        webUrl      = $siteUrlVal
                     }
+                    $allSitesRaw.Add($siteObj)
+                    $csvLoadedCount++
                 }
             }
             Write-StatusMsg -Message "Se han importado $csvLoadedCount sitios desde el CSV." -Status "SUCCESS"
@@ -1822,16 +1869,23 @@ if ($targetSiteFilter) {
                     if ($csvData) {
                         $csvSitesList = [System.Collections.Generic.List[PSCustomObject]]::new()
                         foreach ($row in $csvData) {
-                            $sUrl = if ($row.URL) { $row.URL } elseif ($row.Url) { $row.Url } elseif ($row.'WebUrl') { $row.'WebUrl' } else { "" }
-                            $sTitle = if ($row.'Site name') { $row.'Site name' } elseif ($row.Title) { $row.Title } else { "" }
+                            $sUrl = Get-CsvRowValue -Row $row -PossibleKeys @("URL", "WebUrl", "Url")
+                            $sTitle = Get-CsvRowValue -Row $row -PossibleKeys @("Site name", "Title", "Name", "Nombre")
                             if ($sUrl -and $sUrl -like "http*") {
                                 $cPath = ($sUrl -replace "https://[^/]+", "") -replace "^/sites/", "" -replace "^/", ""
                                 $gSite = $null
                                 if ($cPath) {
                                     try { $gSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cPath" } catch {}
+                                    if (-not $gSite) {
+                                        $cleanP = Clean-SitePath -Text $cPath
+                                        if ($cleanP) {
+                                            try { $gSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanP" } catch {}
+                                        }
+                                    }
                                 }
+                                $graphSiteId = if ($gSite -and $gSite.id) { $gSite.id } else { Format-GraphSiteIdentifier -InputIdOrUrl $sUrl }
                                 $siteObj = [PSCustomObject]@{
-                                    Id        = if ($gSite -and $gSite.id) { $gSite.id } else { $sUrl }
+                                    Id        = $graphSiteId
                                     Title     = if ($sTitle) { $sTitle } elseif ($gSite -and $gSite.displayName) { $gSite.displayName } else { $cPath }
                                     WebUrl    = $sUrl
                                     SiteType  = "Sitio del CSV"
@@ -2036,12 +2090,13 @@ $sitesToScanDrives = @($script:finalAuditedSites)
 foreach ($site in $sitesToScanDrives) {
     if (-not $site.IsFolder -and $site.Id) {
         try {
-            $drives = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$($site.Id)/drives"
+            $targetGraphId = Format-GraphSiteIdentifier -InputIdOrUrl $site.Id
+            $drives = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$targetGraphId/drives"
             foreach ($drive in $drives) {
                 $driveName = if ($drive.name) { $drive.name } else { "Biblioteca de documentos" }
                 $driveId = $drive.id
                 if ($driveId) {
-                    Get-DriveFoldersWithUniquePermissions -SiteId $site.Id -SiteTitle $site.Title -SiteWebUrl $site.WebUrl -DriveId $driveId -DriveName $driveName -FolderPath "" -ItemId "root" -MaxDepth $MaxFolderDepth
+                    Get-DriveFoldersWithUniquePermissions -SiteId $targetGraphId -SiteTitle $site.Title -SiteWebUrl $site.WebUrl -DriveId $driveId -DriveName $driveName -FolderPath "" -ItemId "root" -MaxDepth $MaxFolderDepth
                 }
             }
         } catch {
@@ -2114,16 +2169,18 @@ foreach ($site in $script:finalAuditedSites) {
             continue
         }
 
+        $targetGraphId = Format-GraphSiteIdentifier -InputIdOrUrl $site.Id
+
         # A. Extraer miembros de grupos nativos de SharePoint (/siteGroups/{id}/users)
         try {
-            $spGroupsRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$($site.Id)/siteGroups"
+            $spGroupsRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$targetGraphId/siteGroups"
             if ($spGroupsRes -and $spGroupsRes.value) {
                 foreach ($spGrp in $spGroupsRes.value) {
                     $spGrpId = $spGrp.id
                     $spGrpName = $spGrp.displayName
                     if ($spGrpId) {
                         try {
-                            $spUsersRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$($site.Id)/siteGroups/$spGrpId/users"
+                            $spUsersRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$targetGraphId/siteGroups/$spGrpId/users"
                             if ($spUsersRes -and $spUsersRes.value) {
                                 foreach ($spU in $spUsersRes.value) {
                                     $uName = if ($spU.displayName) { $spU.displayName } else { "Usuario sharepoint" }
@@ -2169,7 +2226,7 @@ foreach ($site in $script:finalAuditedSites) {
 
         # B. Extraer administradores de la coleccion de sitios (Site collection admins)
         try {
-            $adminsRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$($site.Id)/siteCollection/admins"
+            $adminsRes = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/$targetGraphId/siteCollection/admins"
             if ($adminsRes -and $adminsRes.value) {
                 foreach ($admin in $adminsRes.value) {
                     $uName = if ($admin.displayName) { $admin.displayName } else { "Admin de sitio" }
@@ -2195,9 +2252,46 @@ foreach ($site in $script:finalAuditedSites) {
             Write-Verbose "Error al obtener admins para $($site.WebUrl): $($_.Exception.Message)"
         }
 
-        # C. Extraer propietarios y miembros del grupo M365 / teams asociado
+        # C. Extraer propietarios y miembros del grupo M365 / teams asociado (con resolucion dinamica multinivel)
+        $groupId = $null
         if ($m365GroupIdMap.ContainsKey($site.WebUrl.ToLower())) {
             $groupId = $m365GroupIdMap[$site.WebUrl.ToLower()]
+        }
+
+        # Fallback 1: Extraer ID de grupo a traves de los drives de la coleccion de sitios
+        if (-not $groupId) {
+            try {
+                $drivesRes = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$targetGraphId/drives"
+                foreach ($drv in $drivesRes) {
+                    if ($drv.owner -and $drv.owner.group -and $drv.owner.group.id) {
+                        $groupId = $drv.owner.group.id
+                        $m365GroupIdMap[$site.WebUrl.ToLower()] = $groupId
+                        break
+                    }
+                }
+            } catch {}
+        }
+
+        # Fallback 2: Buscar grupo M365 en Graph API por mailNickname o displayName
+        if (-not $groupId) {
+            $cleanSiteName = ($site.WebUrl -replace "https://[^/]+", "") -replace "^/sites/", "" -replace "^/", ""
+            $cleanTitle = Clean-SitePath -Text $site.Title
+            $searchTerms = @($cleanSiteName, $site.Title, $cleanTitle) | Where-Object { [string]::IsNullOrWhiteSpace($_) -eq $false } | Select-Object -Unique
+            
+            foreach ($st in $searchTerms) {
+                try {
+                    $escapedTerm = [System.Uri]::EscapeDataString($st)
+                    $foundGrp = Invoke-GraphPaginatedRequest -Uri "v1.0/groups?`$filter=mailNickname eq '$escapedTerm' or displayName eq '$escapedTerm'"
+                    if ($foundGrp -and $foundGrp.Count -gt 0 -and $foundGrp[0].id) {
+                        $groupId = $foundGrp[0].id
+                        $m365GroupIdMap[$site.WebUrl.ToLower()] = $groupId
+                        break
+                    }
+                } catch {}
+            }
+        }
+
+        if ($groupId) {
             try {
                 $ownersRes = Invoke-GraphPaginatedRequest -Uri "v1.0/groups/$groupId/owners?`$select=id,displayName,userPrincipalName,mail"
                 foreach ($owner in $ownersRes) {
@@ -2262,12 +2356,12 @@ foreach ($site in $script:finalAuditedSites) {
         # D. Extraer permisos directos e inherentes del sitio (/permissions)
         $permsRaw = @()
         try {
-            $permsRaw = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$($site.Id)/permissions"
+            $permsRaw = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$targetGraphId/permissions"
         } catch {}
 
         if (-not $permsRaw -or $permsRaw.Count -eq 0) {
             try {
-                $permsRaw = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$($site.Id)/drive/root/permissions"
+                $permsRaw = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$targetGraphId/drive/root/permissions"
             } catch {}
         }
 

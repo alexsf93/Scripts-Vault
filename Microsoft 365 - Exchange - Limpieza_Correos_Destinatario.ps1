@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
-    Exchange online - Limpieza de correos por destinatario y antiguedad con Microsoft graph api (v1.3.0).
+    Exchange online - Limpieza de correos por destinatario y antiguedad con Microsoft graph api (v1.4.0).
 
 .DESCRIPTION
     Script de administracion para Exchange online que escanea un buzon de correo,
     busca mensajes enviados a un destinatario especifico con una antiguedad mayor a N meses (por defecto: 6),
     permite seleccionar la carpeta de origen (Elementos enviados, Bandeja de entrada, Correo no deseado, Elementos eliminados, Borradores, Todas u Otros),
     calcula la cantidad exacta de espacio en MB/GB que se liberara del buzon,
-    generan reportes HTML previos y posteriores corporativos estilo Microsoft exchange admin center & fluent ui a pantalla completa sin margenes laterales,
+    genera reportes HTML previos y posteriores corporativos estilo Microsoft exchange admin center & fluent ui a pantalla completa sin margenes laterales,
+    con resolucion automatica de rutas absolutas e instrucciones nativas de descarga para Azure Cloud Shell,
     solicita confirmacion y realiza la eliminacion segura de los correos.
 
 .PARAMETER Mailbox
@@ -52,8 +53,8 @@
 .NOTES
     Nombre:         Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1
     Autor:          Alejandro Suarez (@alexsf93)
-    Version:        1.3.0
-    Fecha:          2026-08-10
+    Version:        1.4.0
+    Fecha:          2026-08-11
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
