@@ -1,76 +1,148 @@
 # Scripts-Vault
 
-Colección de scripts y utilidades para administración de sistemas Windows/M365, automatizaciones en Linux (Ubuntu) y proyectos en Python y PowerShell.
+Repositorio centralizado de herramientas, scripts de automatización e infraestructura para la administración de sistemas Windows, Microsoft 365 / Entra ID, Linux (Ubuntu), utilidades de red, herramientas web y scripts de generación de datos de prueba (seeding).
 
-## 📁 Estructura del repositorio
+---
+
+## Estructura del Repositorio
 
 ```text
-.
-├── Automatizaciones/     # Scripts de despliegue e infraestructura (Bash / PowerShell)
-├── HTML/                 # Herramientas y visualizadores web locales
-├── Juegos/               # Juegos retro en Python (Turtle) y PowerShell
-└── *.ps1                 # Scripts de administración de M365, Redes e Intune
+Scripts-Vault/
+├── Automatizaciones/
+│   ├── Automatizaciones_Cliente_W11.ps1
+│   ├── Automatizaciones_Instalar_Grafana.sh
+│   ├── Automatizaciones_Instalar_N8N.sh
+│   ├── Automatizaciones_Instalar_Nagios.sh
+│   ├── Automatizaciones_Instalar_Nextcloud.sh
+│   ├── Automatizaciones_Instalar_Wordpress.sh
+│   └── Automatizaciones_Server_AADS_DNS_DOMINIOA.ps1
+├── HTML/
+│   └── LiveLogViewer/
+│       └── LiveLogViewer.html
+├── Juegos/
+│   ├── Juego - Arkanoid.py
+│   ├── Juego - Pong.ps1
+│   ├── Juego - Pong.py
+│   └── Juego - Snake.py
+├── Pruebas-Seeding/
+│   ├── Pruebas-Seeding - Generador_Datos_Exchange.ps1
+│   ├── Pruebas-Seeding - Generador_Datos_SharePoint.ps1
+│   ├── Pruebas-Seeding - Generador_Permisos_Unicos_SharePoint.ps1
+│   └── Pruebas-Seeding - Generador_Usuarios_Teams.ps1
+├── Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1
+├── Microsoft 365 - Exchange - Recopilacion_Buzones.ps1
+├── Microsoft 365 - SharePoint - Auditoria_Permisos.ps1
+├── Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1
+├── Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1
+├── Microsoft Intune - Auditoria_Asignaciones_Grupo.ps1
+├── Microsoft Intune - Registro_Dispositivo_Autopilot.ps1
+├── Script - Listener_UDP.ps1
+└── Script - Sender_UDP.ps1
 ```
 
-## 📜 Inventario de Scripts
+---
 
-### ☁️ Microsoft 365 y Administración Windows
+## Catálogo de Herramientas y Scripts
 
-| Script | Descripción |
-| :--- | :--- |
-| `Microsoft 365 - SharePoint - Auditoria_Permisos.ps1` | Auditoría completa de permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos) vía Graph API con soporte para selección múltiple (`1,2,4,6` / rangos), auditoría de sitios específicos por URL o CSV (`-CsvPath`), compatibilidad total con Azure Cloud Shell y reporte HTML interactivo. |
-| `Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1` | Auditoría previa y limpieza de versiones obsoletas en SharePoint Online con selección múltiple de bibliotecas/sitios, cálculo de MB/GB salvados e informes visuales en HTML compatibles con Cloud Shell. |
-| `Microsoft 365 - Exchange - Recopilacion_Buzones.ps1` | Obtiene un reporte detallado de buzones de Exchange Online en una tabla interactiva (`Out-GridView`). |
-| `Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1` | Auditoría previa y limpieza de correos antiguos (>6 meses) por destinatario con selector de carpetas (Enviados, Entrada, Spam, Otros) vía Graph API con cálculo de MB/GB liberados del buzón e informes HTML compatibles con Cloud Shell. |
-| `Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1` | Eliminación masiva de usuarios (miembros o invitados) en equipos de Microsoft Teams con filtrado por dominio. |
-| `Microsoft Intune - Registro_Dispositivo_Autopilot.ps1` | Registra el equipo local en Microsoft Autopilot vía `Get-WindowsAutopilotInfo` y apaga el equipo tras completar. |
-| `Microsoft Intune - Auditoria_Asignaciones_Grupo.ps1` | Audita todas las políticas, perfiles, apps, scripts y remediaciones asignados a un grupo específico de Microsoft Entra / M365 en Microsoft Intune. |
-| `Script - Listener_UDP.ps1` | Inicia un servidor de escucha UDP en el puerto indicado para pruebas de red. |
-| `Script - Sender_UDP.ps1` | Envía paquetes UDP de prueba a un servidor local. |
+### 1. Administración de Microsoft 365 e Intune
 
-### 🐧 Automatización y Despliegues en Linux (Bash)
+Scripts en PowerShell para la auditoría, mantenimiento y gestión automatizada de entornos cloud en Microsoft 365 y Microsoft Intune.
 
-| Script | Descripción |
-| :--- | :--- |
-| `Automatizaciones_Instalar_Grafana.sh` | Instalación desatendida de Grafana OSS en Ubuntu 24.04 LTS. |
-| `Automatizaciones_Instalar_N8N.sh` | Despliegue automatizado de n8n con Node.js, Nginx como reverse proxy y SSL autofirmado. |
-| `Automatizaciones_Instalar_Nagios.sh` | Compilación e instalación desatendida de Nagios Core 4.x y plugins oficiales. |
-| `Automatizaciones_Instalar_Nextcloud.sh` | Instalación del stack LAMP (Apache, MySQL, PHP) y despliegue de Nextcloud. |
-| `Automatizaciones_Instalar_Wordpress.sh` | Instalación del stack LAMP y configuración automatizada de WordPress. |
-
-### 💻 Automatización de Sistemas Windows
-
-| Script | Descripción |
-| :--- | :--- |
-| `Automatizaciones_Cliente_W11.ps1` | Post-instalación y puesta a punto de Windows 11 (región, limpieza de bloatware, software básico). |
-| `Automatizaciones_Server_AADS_DNS_DOMINIOA.ps1` | Instalación 100% desatendida de los roles Active Directory Domain Services y DNS. |
-
-### 🧪 Scripts de Prueba y Generación de Datos (Ruido / Seeding)
-
-| Script | Descripción |
-| :--- | :--- |
-| `Pruebas-Seeding/Pruebas-Seeding - Generador_Datos_SharePoint.ps1` | Crea una biblioteca de prueba en SharePoint Online y sube archivos forzando la creación de historial de versiones real para pruebas de limpieza. |
-| `Pruebas-Seeding/Pruebas-Seeding - Generador_Datos_Exchange.ps1` | Genera correos simulados (antiguos >6 meses y recientes) en un buzón de Exchange hacia un destinatario para probar auditoría y borrado. |
-
-### 🎮 Juegos Retro
-
-| Script | Lenguaje | Descripción |
+| Archivo | Plataforma | Descripción |
 | :--- | :--- | :--- |
-| `Juego - Arkanoid.py` | Python | Remake de Arkanoid con estética neón CRT, power-ups y niveles aleatorios usando Turtle. |
-| `Juego - Pong.py` | Python | Recreación del clásico Pong estilo CRT para jugar contra la CPU en Turtle. |
-| `Juego - Snake.py` | Python | Juego de la serpiente con filtro CRT, frutas especiales y vidas acumulables. |
-| `Juego - Pong.ps1` | PowerShell | Pong clásico jugable directamente dentro de la consola de PowerShell. |
+| `Microsoft 365 - SharePoint - Auditoria_Permisos.ps1` | PowerShell / Graph API | Audita permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos). Permite selección múltiple, importación por CSV (`-CsvPath`) y genera reportes en HTML interactivo. |
+| `Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1` | PowerShell / Graph API | Audita y elimina versiones obsoletas en bibliotecas de SharePoint Online. Calcula el espacio liberado (MB/GB) y genera informes en HTML. |
+| `Microsoft 365 - Exchange - Recopilacion_Buzones.ps1` | PowerShell / ExchangeOnline | Recopila y exporta información detallada sobre los buzones de Exchange Online presentándola mediante una interfaz interactiva (`Out-GridView`). |
+| `Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1` | PowerShell / Graph API | Identifica y elimina correos antiguos (>6 meses) por destinatario en carpetas seleccionadas (Enviados, Entrada, Spam, etc.), calculando el espacio liberado. |
+| `Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1` | PowerShell / Teams API | Facilita la desvinculación masiva de miembros o invitados en equipos de Microsoft Teams mediante filtrado por dominio. |
+| `Microsoft Intune - Auditoria_Asignaciones_Grupo.ps1` | PowerShell / Graph API | Audita las políticas, perfiles de configuración, aplicaciones, scripts y remediaciones asignadas a un grupo específico de Entra ID / Intune. |
+| `Microsoft Intune - Registro_Dispositivo_Autopilot.ps1` | PowerShell | Registra el equipo local en Microsoft Autopilot mediante `Get-WindowsAutopilotInfo` y programa el apagado automático del sistema. |
 
 ---
 
-## ⚙️ Requisitos
+### 2. Automatización de Sistemas e Infraestructura
 
-- **PowerShell:** Windows PowerShell 5.1 / PowerShell 7.x ejecutado como Administrador. Los scripts de M365 requieren sus respectivos módulos (`Microsoft.Graph.Authentication`, `ExchangeOnlineManagement`, `MicrosoftTeams`).
-- **Linux:** Ubuntu 22.04 / 24.04 LTS con permisos de `sudo`.
-- **Python:** Python 3.x (librería estándar `turtle`).
+Scripts para aprovisionamiento desatendido y configuración de servidores y clientes en entornos Windows y Linux.
+
+| Archivo | Entorno | Descripción |
+| :--- | :--- | :--- |
+| `Automatizaciones/Automatizaciones_Cliente_W11.ps1` | Windows 11 | Post-instalación y optimización de Windows 11 (configuración regional, desinstalación de bloatware e instalación de software base). |
+| `Automatizaciones/Automatizaciones_Server_AADS_DNS_DOMINIOA.ps1` | Windows Server | Instalación y configuración desatendida de roles de Active Directory Domain Services (AD DS) y DNS. |
+| `Automatizaciones/Automatizaciones_Instalar_Grafana.sh` | Bash / Ubuntu | Despliegue desatendido de Grafana OSS en Ubuntu LTS. |
+| `Automatizaciones/Automatizaciones_Instalar_N8N.sh` | Bash / Ubuntu | Instalación de n8n con Node.js, configuración de Nginx como proxy inverso y certificados SSL. |
+| `Automatizaciones/Automatizaciones_Instalar_Nagios.sh` | Bash / Ubuntu | Compilación e instalación automatizada de Nagios Core y sus plugins oficiales. |
+| `Automatizaciones/Automatizaciones_Instalar_Nextcloud.sh` | Bash / Ubuntu | Despliegue del stack LAMP (Apache, MySQL, PHP) y configuración inicial de Nextcloud. |
+| `Automatizaciones/Automatizaciones_Instalar_Wordpress.sh` | Bash / Ubuntu | Despliegue del stack LAMP y aprovisionamiento automatizado de WordPress. |
 
 ---
 
-## 👤 Autor
+### 3. Herramientas de Red y Visualización Web
+
+Utilidades para diagnóstico de red en capa de transporte y herramientas de análisis local.
+
+| Archivo | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `HTML/LiveLogViewer/LiveLogViewer.html` | HTML / JS / Bootstrap | Visor web interactivo para la lectura, filtrado y monitoreo de archivos de registro (logs) en tiempo real. |
+| `Script - Listener_UDP.ps1` | PowerShell | Inicia un socket de escucha UDP en un puerto configurable para pruebas de conectividad y recepción de paquetes. |
+| `Script - Sender_UDP.ps1` | PowerShell | Envía datagramas UDP de prueba hacia un host y puerto de destino. |
+
+---
+
+### 4. Generación de Datos de Prueba (Seeding)
+
+Scripts diseñados para poblar entornos de prueba y validar el funcionamiento de los scripts de auditoría y mantenimiento.
+
+| Archivo | Entorno Target | Descripción |
+| :--- | :--- | :--- |
+| `Pruebas-Seeding/Pruebas-Seeding - Generador_Datos_SharePoint.ps1` | SharePoint Online | Crea bibliotecas de prueba y genera archivos simulando múltiples versiones para testear scripts de limpieza. |
+| `Pruebas-Seeding/Pruebas-Seeding - Generador_Permisos_Unicos_SharePoint.ps1` | SharePoint Online | Crea estructuras de carpetas y rompe la herencia de permisos para validar scripts de auditoría de permisos. |
+| `Pruebas-Seeding/Pruebas-Seeding - Generador_Datos_Exchange.ps1` | Exchange Online | Genera tráfico simulado de correos electrónicos antiguos y recientes en un buzón de prueba. |
+| `Pruebas-Seeding/Pruebas-Seeding - Generador_Usuarios_Teams.ps1` | Microsoft Teams | Añade usuarios e invitados de prueba con dominios específicos a un equipo para testear la eliminación masiva. |
+
+---
+
+### 5. Juegos Retro
+
+Recreaciones de juegos clásicos para consola y entorno gráfico.
+
+| Archivo | Lenguaje | Descripción |
+| :--- | :--- | :--- |
+| `Juegos/Juego - Arkanoid.py` | Python (Turtle) | Juego estilo Arkanoid con física de colisiones, power-ups y niveles dinámicos. |
+| `Juegos/Juego - Pong.py` | Python (Turtle) | Clon clásico de Pong para 1 o 2 jugadores con marcador e interfaz gráfica. |
+| `Juegos/Juego - Snake.py` | Python (Turtle) | Juego de la serpiente con mecánicas de velocidad e ítems especiales. |
+| `Juegos/Juego - Pong.ps1` | PowerShell | Implementación del juego Pong ejecutable directamente en la consola de PowerShell. |
+
+---
+
+## Requisitos y Prerrequisitos
+
+- **PowerShell**: Windows PowerShell 5.1 o PowerShell 7+. Requiere permisos de administrador para scripts de sistema local.
+  - Módulos requeridos para Microsoft 365:
+    - `Microsoft.Graph.Authentication`
+    - `ExchangeOnlineManagement`
+    - `MicrosoftTeams`
+- **Linux**: Ubuntu 22.04 LTS / 24.04 LTS con acceso a `sudo`.
+- **Python**: Python 3.x (utiliza únicamente la librería estándar `turtle` y `tkinter`).
+
+---
+
+## Ejemplos de Uso
+
+### Ejecutar auditoría de permisos en SharePoint
+```powershell
+.\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1 -SiteUrl "https://contoso.sharepoint.com/sites/IT"
+```
+
+### Iniciar un socket de escucha UDP en PowerShell
+```powershell
+.\Script - Listener_UDP.ps1 -Port 514
+```
+
+### Ejecutar el visor de logs local
+Abrir directamente `HTML/LiveLogViewer/LiveLogViewer.html` en cualquier navegador web moderno (Chrome, Edge, Firefox).
+
+---
+
+## Autor
 
 **Alejandro Suárez** ([@alexsf93](https://github.com/alexsf93))
