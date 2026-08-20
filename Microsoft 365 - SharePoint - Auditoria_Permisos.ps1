@@ -70,7 +70,8 @@ param(
         "appcatalog",
         "redirect",
         "delve"
-    )
+    ),
+    [int]$RequestDelayMs = 250
 )
 
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
@@ -312,7 +313,7 @@ try {
     Exit
 }
 
-# Control de throttling y reintentos con exponential backoff
+# Control de throttling y reintentos con exponential backoff y pautado anti-riesgo
 function Invoke-GraphRequestWithRetry {
     param(
         [string]$Uri,
@@ -320,6 +321,9 @@ function Invoke-GraphRequestWithRetry {
         [int]$MaxRetries = 4,
         [int]$BaseDelaySeconds = 2
     )
+    if ($RequestDelayMs -gt 0) {
+        Start-Sleep -Milliseconds $RequestDelayMs
+    }
     $attempt = 0
     while ($attempt -le $MaxRetries) {
         try {

@@ -73,7 +73,8 @@ param(
     [switch]$AuditOnly,
     [switch]$Force,
     [string]$HtmlOutputPath = ".\Reporte_Auditoria_Correos.html",
-    [string]$DeletionHtmlPath = ".\Reporte_Limpieza_Correos_Ejecutada.html"
+    [string]$DeletionHtmlPath = ".\Reporte_Limpieza_Correos_Ejecutada.html",
+    [int]$RequestDelayMs = 250
 )
 
 # Validar e instalar modulo requerido si no esta presente
@@ -151,6 +152,9 @@ function Invoke-MgGraphWithRetry {
         [hashtable]$Body = $null,
         [int]$MaxRetries = 5
     )
+    if ($RequestDelayMs -gt 0) {
+        Start-Sleep -Milliseconds $RequestDelayMs
+    }
     $Attempt = 0
     while ($true) {
         $Attempt++

@@ -25,7 +25,10 @@
 
 param(
     [Parameter(Position=0, Mandatory=$false)]
-    [string]$User
+    [string]$User,
+
+    [Parameter(Mandatory=$false, HelpMessage="Tiempo de pausa en ms entre consultas de buzones para evitar picos de API y alertas de Identity Protection")]
+    [int]$RequestDelayMs = 200
 )
 
 # Forzar consola a UTF-8
@@ -137,6 +140,9 @@ foreach ($mb in $mailboxes) {
             LastSignIn            = if ($stats.LastLogonTime) { (Get-SpainDateTime ([DateTime]$stats.LastLogonTime)).ToString("yyyy-MM-dd HH:mm:ss") } else { "No disponible" }
             Archivado             = if ($mb.ArchiveStatus -eq 'Active') { 'Habilitado' } else { 'No habilitado' }
             PoliticaRetencion     = if ($mb.RetentionPolicy) { $mb.RetentionPolicy } else { 'No asignada' }
+        }
+        if ($RequestDelayMs -gt 0) {
+            Start-Sleep -Milliseconds $RequestDelayMs
         }
     } catch {
         Write-Warning "No se pudo obtener estadisticas para $($mb.UserPrincipalName)"

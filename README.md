@@ -24,6 +24,7 @@ Colección de scripts y utilidades para administración de sistemas Windows/M365
 | `Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1` | Auditoría previa y limpieza de correos antiguos (>6 meses) por destinatario con selector de carpetas (Enviados, Entrada, Spam, Otros) vía Graph API con cálculo de MB/GB liberados del buzón e informes HTML compatibles con Cloud Shell. |
 | `Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1` | Eliminación masiva de usuarios (miembros o invitados) en equipos de Microsoft Teams con filtrado por dominio. |
 | `Microsoft Intune - Registro_Dispositivo_Autopilot.ps1` | Registra el equipo local en Microsoft Autopilot vía `Get-WindowsAutopilotInfo` y apaga el equipo tras completar. |
+| `Microsoft Intune - Auditoria_Asignaciones_Grupo.ps1` | Audita todas las políticas, perfiles, apps, scripts y remediaciones asignados a un grupo específico de Microsoft Entra / M365 en Microsoft Intune. |
 | `Script - Listener_UDP.ps1` | Inicia un servidor de escucha UDP en el puerto indicado para pruebas de red. |
 | `Script - Sender_UDP.ps1` | Envía paquetes UDP de prueba a un servidor local. |
 

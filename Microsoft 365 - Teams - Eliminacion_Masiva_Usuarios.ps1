@@ -40,7 +40,10 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidatePattern('^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$')]
-    [string]$Domain
+    [string]$Domain,
+
+    [Parameter(Mandatory = $false, HelpMessage = "Tiempo de pausa en ms entre eliminaciones para evitar alertas de Entra Identity Protection")]
+    [int]$RequestDelayMs = 300
 )
 
 Write-Host "Rol objetivo: $TargetRole" -ForegroundColor Cyan
@@ -185,6 +188,10 @@ foreach ($target in $targets) {
             Remove-TeamUser -GroupId $team.GroupId -User $target.UserId -ErrorAction Stop
             Write-Host " [OK] Eliminado: $($target.User)" -ForegroundColor Green
             $deletedLog += $target.User
+
+            if ($RequestDelayMs -gt 0) {
+                Start-Sleep -Milliseconds $RequestDelayMs
+            }
         }
         catch {
             Write-Warning " [ERROR] Fallo eliminacion de $($target.User): $_"
