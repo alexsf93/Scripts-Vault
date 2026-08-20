@@ -111,6 +111,24 @@ function Write-StatusMsg {
     }
 }
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 # Formatear bytes a legibles (KB, MB, GB)
 function Format-Bytes {
     param([int64]$Bytes)
@@ -336,14 +354,14 @@ switch -Wildcard ($Folder.ToLower()) {
 }
 
 # Calcular la fecha umbral
-$ThresholdDate = (Get-Date).AddMonths(-$MonthsOld)
+$ThresholdDate = (Get-SpainDateTime).AddMonths(-$MonthsOld)
 $IsoThresholdDate = $ThresholdDate.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 Write-StatusMsg "Buzon origen       : $Mailbox" -Status "INFO"
 Write-StatusMsg "Destinatario filtro: $RecipientEmail" -Status "INFO"
 Write-StatusMsg "Carpeta evaluada   : $FolderNameDisplay" -Status "INFO"
 Write-StatusMsg "Antiguedad minima  : $MonthsOld meses" -Status "INFO"
-Write-StatusMsg "Fecha limite       : Anterior al $($ThresholdDate.ToString('dd/MM/yyyy HH:mm')) UTC ($IsoThresholdDate)" -Status "INFO"
+Write-StatusMsg "Fecha limite       : Anterior al $($ThresholdDate.ToString('dd/MM/yyyy HH:mm')) (Hora España / $IsoThresholdDate UTC)" -Status "INFO"
 
 # -------------------------------------------------------------------------
 # PASO 3: BUSQUEDA Y AUDITORIA DE CORREOS
@@ -407,7 +425,7 @@ try {
                         Id             = $msg.id
                         Subject        = if ([string]::IsNullOrWhiteSpace($msg.subject)) { "(Sin asunto)" } else { $msg.subject }
                         SentDateTime   = [DateTime]$msg.sentDateTime
-                        SentFormatted  = ([DateTime]$msg.sentDateTime).ToString("dd/MM/yyyy HH:mm")
+                        SentFormatted  = (Get-SpainDateTime ([DateTime]$msg.sentDateTime)).ToString("dd/MM/yyyy HH:mm")
                         RecipientEmail = $RecipientEmail
                         SizeBytes      = $MsgSize
                         SizeFormatted  = Format-Bytes -Bytes $MsgSize
@@ -450,7 +468,7 @@ try {
     $MailboxEnc = [System.Net.WebUtility]::HtmlEncode($Mailbox)
     $RecipientEnc = [System.Net.WebUtility]::HtmlEncode($RecipientEmail)
     $FolderEnc = [System.Net.WebUtility]::HtmlEncode($FolderNameDisplay)
-    $DateNowStr = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $DateNowStr = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
 
     $EmailRowsHtml = [System.Text.StringBuilder]::new()
     foreach ($em in $MatchingEmails) {
@@ -988,7 +1006,7 @@ try {
     $MailboxEnc = [System.Net.WebUtility]::HtmlEncode($Mailbox)
     $RecipientEnc = [System.Net.WebUtility]::HtmlEncode($RecipientEmail)
     $FolderEnc = [System.Net.WebUtility]::HtmlEncode($FolderNameDisplay)
-    $DateNowStr = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $DateNowStr = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
 
     $PostRowsHtml = [System.Text.StringBuilder]::new()
     foreach ($log in $DeletionLogList) {

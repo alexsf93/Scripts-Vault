@@ -28,6 +28,24 @@ param(
 )
 $script:udp = $null
 $script:keepRunning = $true
+
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
 $script:endPoint = $null
 $eventRegistration = $null
 
@@ -54,7 +72,7 @@ try {
             $bytes = $script:udp.Receive([ref]$script:endPoint)
             if ($null -ne $bytes -and $bytes.Length -gt 0) {
                 $msg = [System.Text.Encoding]::UTF8.GetString($bytes)
-                $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                $now = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                 Write-Host ("{0} <- {1}:{2}  |  {3}" -f $now, $script:endPoint.Address, $script:endPoint.Port, $msg)
             }
         }

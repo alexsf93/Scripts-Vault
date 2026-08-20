@@ -107,6 +107,24 @@ function Write-StatusMsg {
     }
 }
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 # Parseador de indices de seleccion (soporta numeros individuales, comas '1,2,4,6', rangos '1-3,5' y '0' para todo)
 function Get-SelectionIndices {
     param(
@@ -598,6 +616,7 @@ function Export-PermissionsToHtml {
         [array]$UserSummaryData,
         [string]$FilePath,
         [string]$UserAccount,
+        [string]$OrgName = "",
         [string]$AuditedSiteName,
         [int]$TotalSitesCount,
         [int]$PrimarySitesCount,
@@ -849,8 +868,9 @@ function Export-PermissionsToHtml {
 
     $uniqueUsersCount = if ($UserSummaryData) { $UserSummaryData.Count } else { 0 }
     $userAccountEsc = [System.Net.WebUtility]::HtmlEncode($UserAccount)
+    $orgNameEsc = if ($OrgName) { [System.Net.WebUtility]::HtmlEncode($OrgName) } else { "" }
     $auditedSiteNameEsc = [System.Net.WebUtility]::HtmlEncode($AuditedSiteName)
-    $dateNowStr = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $dateNowStr = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
     $cardsBodyHtml = $siteCardsHtml.ToString()
     $matrixBodyHtml = $userMatrixRowsHtml.ToString()
 
@@ -1438,8 +1458,13 @@ function Export-PermissionsToHtml {
             <span class="suite-subtitle">| Auditoria de permisos</span>
         </div>
         <div class="suite-right">
+            $(if ($orgNameEsc) { "
+            <div class=`"suite-meta-item`">
+                <span class=`"meta-label`">Organización:</span>
+                <span class=`"meta-value`">$orgNameEsc</span>
+            </div>" })
             <div class="suite-meta-item">
-                <span class="meta-label">Tenant:</span>
+                <span class="meta-label">Ejecutado por:</span>
                 <span class="meta-value">$userAccountEsc</span>
             </div>
             <div class="suite-meta-item">
@@ -1756,7 +1781,7 @@ function Export-PermissionsToHtml {
                 $parentDir = [System.IO.Path]::GetDirectoryName($resolvedPath)
                 $baseName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedPath)
                 $ext = [System.IO.Path]::GetExtension($resolvedPath)
-                $timestamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
+                $timestamp = (Get-SpainDateTime).ToString("yyyyMMdd_HHmmss")
                 $resolvedPath = [System.IO.Path]::Combine($parentDir, "${baseName}_${timestamp}${ext}")
                 Write-StatusMsg -Message "Conservando informe original. El nuevo reporte se guardara en: '$resolvedPath'" -Status "SUCCESS"
             } else {
@@ -2386,7 +2411,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Usuario directo en carpeta"
                             HasInheritanceEnabled = "No (permisos unicos en carpeta)"
                             InheritanceDetail     = "Permisos directos asignados a la carpeta"
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 } elseif ($perm.grantedToV2.group) {
@@ -2401,7 +2426,7 @@ foreach ($site in $script:finalAuditedSites) {
                         AccessSource          = "Grupo via carpeta ($grpName)"
                         HasInheritanceEnabled = "No (permisos unicos en carpeta)"
                         InheritanceDetail     = "Permisos directos de grupo asignados a la carpeta"
-                        AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                        AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                     })
                 }
             }
@@ -2448,7 +2473,7 @@ foreach ($site in $script:finalAuditedSites) {
                                             AccessSource          = "Miembro de grupo sharepoint ($spGrpName)"
                                             HasInheritanceEnabled = if ($site.SiteType -like "*Subsitio*") { "Si (grupo de sitio principal)" } else { "No (permisos directos del sitio principal)" }
                                             InheritanceDetail     = "Grupo nativo sharepoint: $spGrpName"
-                                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                                         })
                                     }
                                 }
@@ -2482,7 +2507,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Administrador de sitio"
                             HasInheritanceEnabled = "No (permisos unicos de administracion)"
                             InheritanceDetail     = "Administrador de coleccion de sitios"
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 }
@@ -2553,7 +2578,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Propietario de grupo m365"
                             HasInheritanceEnabled = "No (permisos directos de grupo)"
                             InheritanceDetail     = "Propietario del equipo de teams"
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 }
@@ -2583,7 +2608,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Miembro de grupo m365"
                             HasInheritanceEnabled = "No (permisos directos de grupo)"
                             InheritanceDetail     = "Miembro del equipo de teams"
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 }
@@ -2655,7 +2680,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Usuario directo"
                             HasInheritanceEnabled = $hasInheritance
                             InheritanceDetail     = $inheritanceDetail
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 } elseif ($idEntry.group) {
@@ -2697,7 +2722,7 @@ foreach ($site in $script:finalAuditedSites) {
                                             AccessSource          = "Usuario via grupo entra id ($grpName)"
                                             HasInheritanceEnabled = $hasInheritance
                                             InheritanceDetail     = $inheritanceDetail
-                                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                                         })
                                         $expandedCount++
                                     }
@@ -2726,7 +2751,7 @@ foreach ($site in $script:finalAuditedSites) {
                                             AccessSource          = "Usuario via grupo entra id ($grpName)"
                                             HasInheritanceEnabled = $hasInheritance
                                             InheritanceDetail     = $inheritanceDetail
-                                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                                         })
                                         $expandedCount++
                                     }
@@ -2747,7 +2772,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Grupo Entra ID / SharePoint ($grpName)"
                             HasInheritanceEnabled = $hasInheritance
                             InheritanceDetail     = $inheritanceDetail
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 } elseif ($idEntry.siteUser) {
@@ -2765,7 +2790,7 @@ foreach ($site in $script:finalAuditedSites) {
                             AccessSource          = "Usuario de sitio sharepoint"
                             HasInheritanceEnabled = $hasInheritance
                             InheritanceDetail     = $inheritanceDetail
-                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                            AuditDate             = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
                         })
                     }
                 }
@@ -2777,7 +2802,7 @@ foreach ($site in $script:finalAuditedSites) {
             SiteTitle    = $site.Title
             SiteUrl      = $site.WebUrl
             ErrorMessage = $_.Exception.Message
-            AttemptDate  = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+            AttemptDate  = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
         })
     }
 }
@@ -2824,6 +2849,22 @@ if ($permissionReport.Count -gt 0) {
     $elapsedTime = "{0:hh\:mm\:ss}" -f $stopwatch.Elapsed
     $userAccount = if ($context -and $context.Account) { $context.Account } else { "Usuario m365" }
     
+    $orgName = ""
+    try {
+        $orgResp = Invoke-GraphRequestWithRetry -Uri "v1.0/organization?`$select=displayName,verifiedDomains"
+        if ($orgResp -and $orgResp.value -and $orgResp.value.Count -gt 0) {
+            $orgName = $orgResp.value[0].displayName
+        }
+    } catch {}
+
+    if ([string]::IsNullOrWhiteSpace($orgName)) {
+        if ($tenantHostName -and $tenantHostName -notlike "*contoso*") {
+            $orgName = ($tenantHostName -replace "\.sharepoint\.com$", "").ToUpper()
+        } elseif ($userAccount -match '@([^@]+)$') {
+            $orgName = $matches[1]
+        }
+    }
+
     $auditedSiteName = if ($selectedGeneralSites -and $selectedGeneralSites.Count -eq 1) {
         $selectedGeneralSites[0].Title
     } elseif ($targetSiteFilter) {
@@ -2843,7 +2884,7 @@ if ($permissionReport.Count -gt 0) {
     }
 
     try {
-        Export-PermissionsToHtml -ReportData $permissionReport -UserSummaryData $userSummary -FilePath $HtmlOutputPath -UserAccount $userAccount -AuditedSiteName $auditedSiteName -TotalSitesCount $script:finalAuditedSites.Count -PrimarySitesCount $primaryCount -SubsitesCount $subsitesCount -TeamSitesCount $teamsCount -FoldersCount $foldersCount -ElapsedTime $elapsedTime
+        Export-PermissionsToHtml -ReportData $permissionReport -UserSummaryData $userSummary -FilePath $HtmlOutputPath -UserAccount $userAccount -OrgName $orgName -AuditedSiteName $auditedSiteName -TotalSitesCount $script:finalAuditedSites.Count -PrimarySitesCount $primaryCount -SubsitesCount $subsitesCount -TeamSitesCount $teamsCount -FoldersCount $foldersCount -ElapsedTime $elapsedTime
     } catch {
         Write-StatusMsg -Message "Error al generar informe HTML: $($_.Exception.Message)" -Status "FAIL"
     }

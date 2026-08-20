@@ -79,6 +79,24 @@ function Write-StatusMsg {
     }
 }
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 function Invoke-MgGraphWithRetry {
     param(
         [string]$Method,
@@ -276,7 +294,7 @@ for ($i = 0; $i -lt $FileCount; $i++) {
         Write-Progress -Activity "Creando versiones de archivos" -Status "Archivo '$FileName' - Version $v de $VersionsPerFile" -PercentComplete (($v / $VersionsPerFile) * 100)
         
         # Contenido variable simulado con diferente tamano para forzar versiones distintas
-        $TimestampText = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        $TimestampText = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
         $RandomContentText = ("Contenido de prueba de la version $v para $FileName.`nFecha de modificacion: $TimestampText`n" + ("X" * ($v * 1024 * 50)))
         $BinaryData = [System.Text.Encoding]::UTF8.GetBytes($RandomContentText)
 

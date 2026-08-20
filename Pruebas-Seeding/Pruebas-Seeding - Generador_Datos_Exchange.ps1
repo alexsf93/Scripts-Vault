@@ -85,6 +85,24 @@ function Write-StatusMsg {
     }
 }
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 function Invoke-MgGraphWithRetry {
     param(
         [string]$Method,
@@ -327,7 +345,7 @@ if ($OldMessagesCount -gt 0) {
         Write-Progress -Activity "Creando correos de prueba" -Status "Creando correo antiguo $i de $OldMessagesCount..." -PercentComplete (($i / $OldMessagesCount) * 50)
         
         $DaysBack = Get-Random -Minimum 190 -Maximum 365
-        $FakeDate = (Get-Date).AddDays(-$DaysBack).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $FakeDate = (Get-SpainDateTime).AddDays(-$DaysBack).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         
         $Tpl = $MailTemplates[($i - 1) % $MailTemplates.Count]
         $Subject = "$($Tpl.Subject) (Prueba antigua #$i)"
@@ -370,7 +388,7 @@ if ($OldMessagesCount -gt 0) {
         try {
             $Resp = Invoke-MgGraphWithRetry -Method POST -Uri $FolderEndpoint -Body $MessageBody
             $CreatedCount++
-            Write-Host "     [+] Correo antiguo #$i creado (Fecha: $((Get-Date).AddDays(-$DaysBack).ToString('dd/MM/yyyy')), Asunto: '$Subject')" -ForegroundColor DarkGray
+            Write-Host "     [+] Correo antiguo #$i creado (Fecha: $((Get-SpainDateTime).AddDays(-$DaysBack).ToString('dd/MM/yyyy')), Asunto: '$Subject')" -ForegroundColor DarkGray
         } catch {
             # Fallback sin propiedades extendidas en caso de que el tenant restrinja extended properties
             try {
@@ -393,7 +411,7 @@ if ($OldMessagesCount -gt 0) {
                 }
                 $Resp = Invoke-MgGraphWithRetry -Method POST -Uri $FolderEndpoint -Body $FallbackBody
                 $CreatedCount++
-                Write-Host "     [+] Correo antiguo #$i creado (Fecha: $((Get-Date).AddDays(-$DaysBack).ToString('dd/MM/yyyy')))" -ForegroundColor DarkGray
+                Write-Host "     [+] Correo antiguo #$i creado (Fecha: $((Get-SpainDateTime).AddDays(-$DaysBack).ToString('dd/MM/yyyy')))" -ForegroundColor DarkGray
             } catch {
                 Write-StatusMsg "Error al generar correo antiguo #$($i): $_" -Status "WARN"
             }
@@ -409,7 +427,7 @@ if ($RecentMessagesCount -gt 0) {
         Write-Progress -Activity "Creando correos de prueba" -Status "Creando correo reciente $j de $RecentMessagesCount..." -PercentComplete (50 + (($j / $RecentMessagesCount) * 50))
         
         $DaysBack = Get-Random -Minimum 5 -Maximum 45
-        $FakeDate = (Get-Date).AddDays(-$DaysBack).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $FakeDate = (Get-SpainDateTime).AddDays(-$DaysBack).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         
         $Tpl = $MailTemplates[($j + 2) % $MailTemplates.Count]
         $Subject = "$($Tpl.Subject) (Prueba reciente #$j)"
@@ -452,7 +470,7 @@ if ($RecentMessagesCount -gt 0) {
         try {
             $Resp = Invoke-MgGraphWithRetry -Method POST -Uri $FolderEndpoint -Body $MessageBody
             $CreatedCount++
-            Write-Host "     [+] Correo reciente #$j creado (Fecha: $((Get-Date).AddDays(-$DaysBack).ToString('dd/MM/yyyy')), Asunto: '$Subject')" -ForegroundColor DarkGray
+            Write-Host "     [+] Correo reciente #$j creado (Fecha: $((Get-SpainDateTime).AddDays(-$DaysBack).ToString('dd/MM/yyyy')), Asunto: '$Subject')" -ForegroundColor DarkGray
         } catch {
             # Fallback sin propiedades extendidas
             try {
@@ -475,7 +493,7 @@ if ($RecentMessagesCount -gt 0) {
                 }
                 $Resp = Invoke-MgGraphWithRetry -Method POST -Uri $FolderEndpoint -Body $FallbackBody
                 $CreatedCount++
-                Write-Host "     [+] Correo reciente #$j creado (Fecha: $((Get-Date).AddDays(-$DaysBack).ToString('dd/MM/yyyy')))" -ForegroundColor DarkGray
+                Write-Host "     [+] Correo reciente #$j creado (Fecha: $((Get-SpainDateTime).AddDays(-$DaysBack).ToString('dd/MM/yyyy')))" -ForegroundColor DarkGray
             } catch {
                 Write-StatusMsg "Error al generar correo reciente #$($j): $_" -Status "WARN"
             }

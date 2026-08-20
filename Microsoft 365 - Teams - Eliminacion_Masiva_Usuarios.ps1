@@ -51,6 +51,24 @@ if ($Domain) {
 # Forzar UTF-8
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 # ---------------------------------------------------------
 # 1. Conexion a Microsoft Teams
 # ---------------------------------------------------------
@@ -178,7 +196,7 @@ foreach ($target in $targets) {
 # 5. Log Final
 # ---------------------------------------------------------
 if ($deletedLog.Count -gt 0) {
-    $timestamp = Get-Date -Format "yyyyMMdd-HHmm"
+    $timestamp = (Get-SpainDateTime).ToString("yyyyMMdd-HHmm")
     $sanitizedTeamName = $TeamName -replace '[^a-zA-Z0-9_\-\s]', ''
     $logFile = "DeletedUsers_${TargetRole}_${sanitizedTeamName}_${timestamp}.log"
     $logPath = if ($PSScriptRoot) { Join-Path $PSScriptRoot $logFile } else { Join-Path $PWD $logFile }
@@ -190,7 +208,7 @@ if ($deletedLog.Count -gt 0) {
     $logContent.Add("Equipo: $TeamName")
     $logContent.Add("Rol Objetivo: $TargetRole")
     if ($Domain) { $logContent.Add("Filtro Dominio: *@" + $Domain + " (y #EXT#)") }
-    $logContent.Add("Fecha Ejecucion: $(Get-Date)")
+    $logContent.Add("Fecha Ejecucion: $((Get-SpainDateTime).ToString('yyyy-MM-dd HH:mm:ss'))")
     $logContent.Add("------------------------------------------")
     foreach ($item in $deletedLog) { $logContent.Add($item) }
     $logContent.Add("------------------------------------------")

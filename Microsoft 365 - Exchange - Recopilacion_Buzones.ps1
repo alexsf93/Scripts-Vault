@@ -70,6 +70,24 @@ if ($null -ne $User -and $User.Trim() -ne "") {
     }
 }
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 function Convert-ToMB {
     param([string]$sizeStr)
     if ([string]::IsNullOrWhiteSpace($sizeStr)) { return $null }
@@ -116,7 +134,7 @@ foreach ($mb in $mailboxes) {
             ElementosAlmacenados  = $stats.ItemCount
             ElementosEliminados   = $stats.DeletedItemCount
             LitigationHold        = if ($mb.LitigationHoldEnabled) { "Si" } else { "No" }
-            LastSignIn            = $stats.LastLogonTime
+            LastSignIn            = if ($stats.LastLogonTime) { (Get-SpainDateTime ([DateTime]$stats.LastLogonTime)).ToString("yyyy-MM-dd HH:mm:ss") } else { "No disponible" }
             Archivado             = if ($mb.ArchiveStatus -eq 'Active') { 'Habilitado' } else { 'No habilitado' }
             PoliticaRetencion     = if ($mb.RetentionPolicy) { $mb.RetentionPolicy } else { 'No asignada' }
         }

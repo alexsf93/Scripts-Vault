@@ -38,8 +38,25 @@
 $TenantID = "TENANT-ID"
 $AppId = "APP-ID"
 $AppSecret = "APP-SECRET"
-$ScriptName = "Get-WindowsAutopilotInfo.ps1"
-$LogFile = "$env:ProgramData\AutopilotRegister\AutopilotRun_$(Get-Date -Format yyyyMMdd_HHmmss).log"
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
+$LogFile = "$env:ProgramData\AutopilotRegister\AutopilotRun_$((Get-SpainDateTime).ToString('yyyyMMdd_HHmmss')).log"
 
 # Validar sistema operativo (Requiere Windows para WMI/CIM y Autopilot)
 if ($IsLinux -or $IsMacOS) {
@@ -49,7 +66,7 @@ if ($IsLinux -or $IsMacOS) {
 
 New-Item -Path (Split-Path $LogFile) -ItemType Directory -Force | Out-Null
 
-function Log { param([string]$m); "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`t$m" | Out-File -FilePath $LogFile -Append -Encoding UTF8 }
+function Log { param([string]$m); "$((Get-SpainDateTime).ToString('yyyy-MM-dd HH:mm:ss'))`t$m" | Out-File -FilePath $LogFile -Append -Encoding UTF8 }
 function Write-ErrorRed { param([string]$m); Write-Host $m -ForegroundColor Red; Log "ERROR: $m" }
 function Write-Info { param([string]$m); Write-Host $m -ForegroundColor Cyan; Log "INFO : $m" }
 

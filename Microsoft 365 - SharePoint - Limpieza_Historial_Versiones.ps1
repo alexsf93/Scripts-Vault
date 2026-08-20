@@ -110,6 +110,24 @@ function Write-StatusMsg {
     }
 }
 
+# Obtiene la fecha y hora convertida explícitamente a la zona horaria de España (Romance Standard Time / Europe/Madrid)
+function Get-SpainDateTime {
+    param([datetime]$DateTime = [datetime]::UtcNow)
+    $tz = $null
+    foreach ($tzId in @('Romance Standard Time', 'Europe/Madrid', 'Central European Standard Time')) {
+        try {
+            $tz = [TimeZoneInfo]::FindSystemTimeZoneById($tzId)
+            if ($null -ne $tz) { break }
+        } catch { }
+    }
+    if ($null -ne $tz) {
+        $utc = if ($DateTime.Kind -eq [System.DateTimeKind]::Utc) { $DateTime } else { $DateTime.ToUniversalTime() }
+        return [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tz)
+    } else {
+        return Get-Date
+    }
+}
+
 # Parseador de indices de seleccion (soporta numeros individuales, comas '1,2,4,6', rangos '1-3,5' y '0' para todo)
 function Get-SelectionIndices {
     param(
@@ -575,7 +593,7 @@ Ensure-DirectoryExists -FilePath $HtmlOutputPath
 try {
     $FormattedSavings = Format-Bytes -Bytes $GlobalStats.RedundantSpaceBytes
     $SiteNameEncoded = [System.Net.WebUtility]::HtmlEncode($TargetSite.displayName)
-    $DateNowStr = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $DateNowStr = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
 
     $AuditRowsHtml = [System.Text.StringBuilder]::new()
     foreach ($item in $AuditResults) {
@@ -1071,7 +1089,7 @@ foreach ($res in $AuditResults) {
                     FileName         = $res.FileName
                     Path             = $res.Path
                     VersionId        = $v.id
-                    VersionModified  = $v.lastModifiedDateTime
+                    VersionModified  = (Get-SpainDateTime ([DateTime]$v.lastModifiedDateTime)).ToString("yyyy-MM-dd HH:mm:ss")
                     FreedBytes       = $VSize
                     FreedFormatted   = Format-Bytes -Bytes $VSize
                     Status           = "Exito"
@@ -1086,7 +1104,7 @@ foreach ($res in $AuditResults) {
                     FileName         = $res.FileName
                     Path             = $res.Path
                     VersionId        = $v.id
-                    VersionModified  = $v.lastModifiedDateTime
+                    VersionModified  = (Get-SpainDateTime ([DateTime]$v.lastModifiedDateTime)).ToString("yyyy-MM-dd HH:mm:ss")
                     FreedBytes       = 0L
                     FreedFormatted   = "0 Bytes"
                     Status           = "Error"
@@ -1108,7 +1126,7 @@ Ensure-DirectoryExists -FilePath $DeletionHtmlPath
 try {
     $FormattedRealFreed = Format-Bytes -Bytes $FreedBytes
     $SiteNameEncoded = [System.Net.WebUtility]::HtmlEncode($TargetSite.displayName)
-    $DateNowStr = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $DateNowStr = (Get-SpainDateTime).ToString("yyyy-MM-dd HH:mm:ss")
 
     $PostRowsHtml = [System.Text.StringBuilder]::new()
     foreach ($log in $DeletionLogList) {
