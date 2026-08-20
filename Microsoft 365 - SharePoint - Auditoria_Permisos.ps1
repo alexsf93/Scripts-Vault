@@ -30,7 +30,7 @@
     Ruta opcional a un archivo CSV exportado desde el Centro de Administracion de SharePoint para auditar todos sus sitios.
 
 .PARAMETER HtmlOutputPath
-    Ruta del informe HTML de salida. Por defecto: ".\Reporte_Permisos_SharePoint.html"
+    Ruta del informe HTML de salida. Por defecto se guarda dentro de la carpeta "Reportes" del directorio de ejecucion como "Reportes/Report_Sharepoint_Auditoria_<Nombredelsite>.html".
 
 .PARAMETER MaxFolderDepth
     Profundidad maxima de exploracion de subcarpetas en bibliotecas de documentos (por defecto: 5).
@@ -58,7 +58,7 @@ param(
     [string]$SiteUrl = "",
     [string]$SiteName = "",
     [string]$CsvPath = "",
-    [string]$HtmlOutputPath = ".\Reporte_Permisos_SharePoint.html",
+    [string]$HtmlOutputPath = "",
     [int]$MaxFolderDepth = 5,
     [bool]$ExcludePersonalSites = $true,
     [string[]]$ExcludedSitePatterns = @(
@@ -159,7 +159,7 @@ function Get-SelectionIndices {
 }
 
 # Limpiar acentos, diacriticos y caracteres especiales de nombres para formar la ruta URL en SharePoint
-function Clean-SitePath {
+function Clear-SitePath {
     param([string]$Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
     $t = $Text.Normalize([System.Text.NormalizationForm]::FormD)
@@ -173,6 +173,28 @@ function Clean-SitePath {
     $clean = $sb.ToString().Normalize([System.Text.NormalizationForm]::FormC)
     $clean = $clean -replace '[^a-zA-Z0-9_-]', ''
     return $clean
+}
+
+# Generar nombre dinamico estandarizado para el reporte HTML (Report_Sharepoint_Auditoria_Nombredelsite.html)
+function Get-ReportFileName {
+    param([string]$SiteNameInput)
+    if ([string]::IsNullOrWhiteSpace($SiteNameInput)) {
+        $raw = "todos_los_sites"
+    } else {
+        $raw = $SiteNameInput
+    }
+    # Si se recibe una URL completa, extraer el alias/segmento del sitio
+    if ($raw -match "https?://[^/]+/(sites|teams)/([^/]+)") {
+        $raw = $Matches[2]
+    } elseif ($raw -match "https?://[^/]+/?") {
+        $raw = "RootSite"
+    }
+    $raw = $raw -replace '\s+', '_' -replace '[-]+', '_'
+    $clean = Clear-SitePath -Text $raw
+    if ([string]::IsNullOrWhiteSpace($clean)) {
+        $clean = "todos_los_sites"
+    }
+    return "Report_Sharepoint_Auditoria_${clean}.html"
 }
 
 # Extraer valores de columnas CSV sin importar codificacion, BOM o comillas
@@ -195,17 +217,29 @@ function Get-CsvRowValue {
     return ""
 }
 
-# Formatear la identificacion del sitio para Graph API (soporta ID unico, URL completa o ruta relativa)
+# Formatear la identificacion del sitio para Graph API (garantiza devolver el ID canonico compuesto)
 function Format-GraphSiteIdentifier {
     param(
         [string]$InputIdOrUrl,
         [string]$TenantHost = $tenantHostName
     )
     if ([string]::IsNullOrWhiteSpace($InputIdOrUrl)) { return "" }
+
     if ($InputIdOrUrl -match "^[^,]+,[^,]+,[^,]+$") {
         return $InputIdOrUrl
     }
-    if ($InputIdOrUrl -match "https://([^/]+)(/sites/[^/]+|/teams/[^/]+|/.*)") {
+
+    if (Get-Command Get-GraphSiteByUrl -ErrorAction SilentlyContinue) {
+        $resolvedSite = Get-GraphSiteByUrl -UrlOrPath $InputIdOrUrl -TenantHost $TenantHost
+        if ($resolvedSite) {
+            $sId = if ($resolvedSite.id) { $resolvedSite.id } else { $resolvedSite.Id }
+            if ($sId -and $sId -match "^[^,]+,[^,]+,[^,]+$") {
+                return $sId
+            }
+        }
+    }
+
+    if ($InputIdOrUrl -match "https://([^/]+)(/.*)") {
         $h = $Matches[1]
         $p = $Matches[2].TrimEnd('/')
         if (-not $p) { return "${h}:/:" }
@@ -350,6 +384,77 @@ function Invoke-GraphPaginatedRequest {
         }
     }
     return $results
+}
+
+# Resolucion explicita de cualquier URL o ruta de sitio en Graph API para obtener su objeto e ID canonico
+function Get-GraphSiteByUrl {
+    param(
+        [string]$UrlOrPath,
+        [string]$TenantHost = $tenantHostName
+    )
+    if ([string]::IsNullOrWhiteSpace($UrlOrPath)) { return $null }
+
+    $cleanInput = $UrlOrPath.Trim().Trim('"').Trim("'")
+    
+    $targetHost = $TenantHost
+    $relPath = ""
+
+    if ($cleanInput -match "^https?://([^/]+)(/.*)?$") {
+        $targetHost = $Matches[1]
+        $relPath = if ($Matches[2]) { $Matches[2].TrimEnd('/') } else { "" }
+    } else {
+        $rawPath = $cleanInput.TrimEnd('/')
+        if ($rawPath.StartsWith("/")) {
+            $relPath = $rawPath
+        } else {
+            $relPath = "/sites/$rawPath"
+        }
+    }
+
+    # Formatear lista de URIs posibles para consultar a Graph API (con y sin dos puntos finales)
+    $possibleUris = [System.Collections.Generic.List[string]]::new()
+    if ([string]::IsNullOrWhiteSpace($relPath) -or $relPath -eq "/") {
+        $possibleUris.Add("v1.0/sites/${targetHost}:/")
+        $possibleUris.Add("v1.0/sites/${TenantHost}:/")
+    } else {
+        $possibleUris.Add("v1.0/sites/${targetHost}:${relPath}")
+        $possibleUris.Add("v1.0/sites/${targetHost}:${relPath}:")
+        $possibleUris.Add("v1.0/sites/${TenantHost}:${relPath}")
+        $possibleUris.Add("v1.0/sites/${TenantHost}:${relPath}:")
+        
+        $decodedPath = [System.Uri]::UnescapeDataString($relPath)
+        if ($decodedPath -ne $relPath) {
+            $possibleUris.Add("v1.0/sites/${targetHost}:${decodedPath}")
+            $possibleUris.Add("v1.0/sites/${targetHost}:${decodedPath}:")
+        }
+    }
+
+    foreach ($gUri in ($possibleUris | Select-Object -Unique)) {
+        try {
+            $siteObj = Invoke-GraphRequestWithRetry -Uri $gUri
+            if ($siteObj -and ($siteObj.id -or $siteObj.webUrl)) {
+                return $siteObj
+            }
+        } catch {
+            Write-Verbose "No se pudo resolver en $gUri : $($_.Exception.Message)"
+        }
+    }
+
+    # Busqueda secundaria en catalogo por termino
+    try {
+        $searchTerm = if ($relPath) { ($relPath -split '/')[-1] } else { $cleanInput }
+        if ($searchTerm) {
+            $searchResults = Invoke-GraphPaginatedRequest -Uri "v1.0/sites?search=$searchTerm"
+            foreach ($s in $searchResults) {
+                $sWebUrl = if ($s.webUrl) { $s.webUrl } else { $s.WebUrl }
+                if ($sWebUrl -and ($sWebUrl.TrimEnd('/').ToLower() -eq $cleanInput.TrimEnd('/').ToLower() -or $sWebUrl -like "*$searchTerm*")) {
+                    return $s
+                }
+            }
+        }
+    } catch {}
+
+    return $null
 }
 
 # Traducir permisos a lenguaje claro
@@ -1253,6 +1358,41 @@ function Export-PermissionsToHtml {
             padding-left: 10px;
         }
 
+        /* Matrix view specific filter bar */
+        .matrix-filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: var(--bg-card);
+            padding: 12px 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-card);
+        }
+        .matrix-filter-bar .search-box {
+            flex: 1;
+            min-width: 220px;
+        }
+        .clear-filters-btn {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            padding: 8px 14px;
+            border-radius: 2px;
+            font-size: 0.84rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .clear-filters-btn:hover {
+            color: var(--sp-brand);
+            border-color: var(--sp-brand);
+            background: var(--bg-site-header);
+        }
+
         /* Footer */
         .footer {
             margin-top: 40px;
@@ -1396,6 +1536,25 @@ function Export-PermissionsToHtml {
         <!-- VISTA 2: MATRIZ POR USUARIO -->
         <div id="usersView" class="view-section" style="display: none;">
             <div class="section-title">Matriz completa por usuario e identidad</div>
+            
+            <!-- Barra de filtros especificos de la matriz por usuario -->
+            <div class="matrix-filter-bar">
+                <div class="search-box">
+                    <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                    </svg>
+                    <input type="text" id="userMatrixUserSearch" placeholder="Filtrar por nombre de usuario o UPN..." onkeyup="applyUserMatrixFilters()">
+                </div>
+                <div class="search-box">
+                    <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a1.99 1.99 0 0 1 .342-1.31L.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3zm-8.322 2l.637 7a1 1 0 0 0 .995.909h10.348a1 1 0 0 0 .995-.91l.637-7H1.506z"/>
+                    </svg>
+                    <input type="text" id="userMatrixResourceSearch" placeholder="Filtrar por sitio, biblioteca o carpeta..." onkeyup="applyUserMatrixFilters()">
+                </div>
+                <button class="clear-filters-btn" onclick="clearUserMatrixFilters()" title="Limpiar filtros de usuario y recursos">Limpiar filtros</button>
+            </div>
+
             <div class="site-card">
                 <div class="table-container">
                     <table>
@@ -1498,6 +1657,35 @@ function Export-PermissionsToHtml {
             applyFilters();
         }
 
+        function applyUserMatrixFilters() {
+            var userSearch = document.getElementById("userMatrixUserSearch") ? document.getElementById("userMatrixUserSearch").value.toLowerCase().trim() : "";
+            var resourceSearch = document.getElementById("userMatrixResourceSearch") ? document.getElementById("userMatrixResourceSearch").value.toLowerCase().trim() : "";
+            var globalSearch = document.getElementById("tableSearch") ? document.getElementById("tableSearch").value.toLowerCase().trim() : "";
+
+            var userRows = document.querySelectorAll('#usersView tbody tr');
+            userRows.forEach(function(row) {
+                var userText = row.cells[0] ? row.cells[0].textContent.toLowerCase() : "";
+                var resourceText = row.cells[3] ? row.cells[3].textContent.toLowerCase() : "";
+                var fullRowText = row.textContent.toLowerCase();
+
+                var matchesUser = (userSearch === "" || userText.indexOf(userSearch) > -1);
+                var matchesResource = (resourceSearch === "" || resourceText.indexOf(resourceSearch) > -1);
+                var matchesGlobal = (globalSearch === "" || fullRowText.indexOf(globalSearch) > -1);
+
+                if (matchesUser && matchesResource && matchesGlobal) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        }
+
+        function clearUserMatrixFilters() {
+            if (document.getElementById("userMatrixUserSearch")) document.getElementById("userMatrixUserSearch").value = "";
+            if (document.getElementById("userMatrixResourceSearch")) document.getElementById("userMatrixResourceSearch").value = "";
+            applyUserMatrixFilters();
+        }
+
         function applyFilters() {
             var searchVal = document.getElementById("tableSearch").value.toLowerCase();
             
@@ -1516,15 +1704,7 @@ function Export-PermissionsToHtml {
                 }
             });
 
-            var userRows = document.querySelectorAll('#usersView tbody tr');
-            userRows.forEach(function(row) {
-                var textContent = row.textContent.toLowerCase();
-                if (searchVal === '' || textContent.indexOf(searchVal) > -1) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
-            });
+            applyUserMatrixFilters();
         }
     </script>
 </body>
@@ -1535,6 +1715,56 @@ function Export-PermissionsToHtml {
         $FilePath
     } else {
         [System.IO.Path]::Combine($PWD.Path, $FilePath)
+    }
+
+    # Normalizar la ruta completa para eliminar '.\' y estandarizar separadores de directorio en Azure Cloud Shell / Linux / Windows
+    $resolvedPath = [System.IO.Path]::GetFullPath($resolvedPath)
+
+    # Crear automáticamente la carpeta de destino (ej. 'Reportes') si no existe
+    $targetDir = [System.IO.Path]::GetDirectoryName($resolvedPath)
+    if ($targetDir -and -not (Test-Path -Path $targetDir)) {
+        [void](New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction SilentlyContinue)
+    }
+
+    # Advertir y solicitar confirmacion si el informe ya existe
+    if (Test-Path -Path $resolvedPath) {
+        Write-StatusMsg -Message "El archivo de informe ya existe: '$resolvedPath'" -Status "WARN"
+        
+        $isInteractive = $true
+        try {
+            if ([Environment]::UserInteractive -eq $false -or -not $Host.UI.RawUI) {
+                $isInteractive = $false
+            }
+        } catch {
+            $isInteractive = $false
+        }
+
+        if ($isInteractive) {
+            Write-Host "`n  [!] ADVERTENCIA: El informe HTML ya existe en el directorio de ejecucion:" -ForegroundColor Yellow
+            Write-Host "      $resolvedPath" -ForegroundColor White
+            Write-Host "  ------------------------------------------------------------------------" -ForegroundColor DarkGray
+            Write-Host "  ¿Que deseas hacer?" -ForegroundColor Cyan
+            Write-Host "   [M] Machacar  - Sobreescribir el informe existente" -ForegroundColor Red
+            Write-Host "   [C] Conservar - Guardar con un nuevo nombre (sufijo de fecha y hora)" -ForegroundColor Green
+            Write-Host "  ------------------------------------------------------------------------" -ForegroundColor DarkGray
+            $userChoice = Read-Host "  Selecciona una opcion ([M]achacar / [C]onservar) [M/C] (Por defecto: M)"
+            
+            if ([string]::IsNullOrWhiteSpace($userChoice)) { $userChoice = "M" }
+            $choiceUpper = $userChoice.Trim().ToUpper()
+
+            if ($choiceUpper -eq "C" -or $choiceUpper -eq "CONSERVAR" -or $choiceUpper -eq "K" -or $choiceUpper -eq "KEEP") {
+                $parentDir = [System.IO.Path]::GetDirectoryName($resolvedPath)
+                $baseName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedPath)
+                $ext = [System.IO.Path]::GetExtension($resolvedPath)
+                $timestamp = (Get-Date).ToString("yyyyMMdd_HHmmss")
+                $resolvedPath = [System.IO.Path]::Combine($parentDir, "${baseName}_${timestamp}${ext}")
+                Write-StatusMsg -Message "Conservando informe original. El nuevo reporte se guardara en: '$resolvedPath'" -Status "SUCCESS"
+            } else {
+                Write-StatusMsg -Message "Machacando (sobreescribiendo) el informe existente..." -Status "WORKING"
+            }
+        } else {
+            Write-StatusMsg -Message "Modo no interactivo: Sobreescribiendo informe existente '$resolvedPath'" -Status "WARN"
+        }
     }
 
     [System.IO.File]::WriteAllText($resolvedPath, $htmlContent, [System.Text.Encoding]::UTF8)
@@ -1562,23 +1792,12 @@ $targetSiteFilter = if ($SiteUrl) { $SiteUrl } elseif ($SiteName) { $SiteName } 
 if ($targetSiteFilter) {
     Write-StatusMsg -Message "Filtro indicado por parametro: '$targetSiteFilter'" -Status "INFO"
     try {
-        $targetHost = $tenantHostName
-        $cleanFilter = $targetSiteFilter
-        if ($targetSiteFilter -match "https://([^/]+)/sites/(.*)") {
-            $targetHost = $Matches[1]
-            $cleanFilter = $Matches[2]
-        } elseif ($targetSiteFilter -match "https://([^/]+)") {
-            $targetHost = $Matches[1]
-            $cleanFilter = ""
+        $directSite = Get-GraphSiteByUrl -UrlOrPath $targetSiteFilter -TenantHost $tenantHostName
+        if ($directSite -and ($directSite.id -or $directSite.webUrl)) {
+            $allSitesRaw.Add($directSite)
+            Write-StatusMsg -Message "Sitio especificado resuelto via Graph API: '$($directSite.displayName)' ($($directSite.webUrl))" -Status "SUCCESS"
         } else {
-            $cleanFilter = ($targetSiteFilter -replace "^/sites/", "") -replace "^/", ""
-        }
-
-        if ($cleanFilter) {
-            $directSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${targetHost}:/sites/$cleanFilter"
-            if ($directSite -and ($directSite.id -or $directSite.webUrl)) {
-                $allSitesRaw.Add($directSite)
-            }
+            Write-StatusMsg -Message "No se pudo resolver directamente el sitio '$targetSiteFilter'. Se realizara busqueda en el catalogo." -Status "WARN"
         }
     } catch {
         Write-Verbose "No se pudo resolver directamente el sitio '$targetSiteFilter': $($_.Exception.Message)"
@@ -1620,8 +1839,8 @@ try {
             } catch {}
 
             if (-not $groupSite) {
-                $cleanName1 = Clean-SitePath -Text $grp.mailNickname
-                $cleanName2 = Clean-SitePath -Text $grp.displayName
+                $cleanName1 = Clear-SitePath -Text $grp.mailNickname
+                $cleanName2 = Clear-SitePath -Text $grp.displayName
                 $possibleNames = @($grp.mailNickname, $grp.displayName, $cleanName1, $cleanName2) | Select-Object -Unique
                 foreach ($name in $possibleNames) {
                     if ($name) {
@@ -1666,7 +1885,7 @@ if ([string]::IsNullOrWhiteSpace($CsvPath) -eq $false -and (Test-Path $CsvPath))
                     if ($cleanPath) {
                         try { $csvSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanPath" } catch {}
                         if (-not $csvSite) {
-                            $cleanP = Clean-SitePath -Text $cleanPath
+                            $cleanP = Clear-SitePath -Text $cleanPath
                             if ($cleanP) {
                                 try { $csvSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanP" } catch {}
                             }
@@ -1779,19 +1998,52 @@ Write-StepHeader -StepNumber 3 -TotalSteps 6 -Title "Seleccion del sitio a audit
 $selectedGeneralSites = [System.Collections.Generic.List[PSCustomObject]]::new()
 
 if ($targetSiteFilter) {
-    $searchTerm = ($targetSiteFilter -replace "https://[^/]+/sites/", "") -replace "^/", ""
+    $searchTerm = ($targetSiteFilter -replace "https://[^/]+/(sites|teams)/", "") -replace "https://[^/]+", "" -replace "^/", ""
     if ([string]::IsNullOrEmpty($searchTerm)) { $searchTerm = $targetSiteFilter }
 
-    Write-StatusMsg -Message "Filtrando por el sitio '$searchTerm'..." -Status "WORKING"
-    foreach ($gs in $generalSitesList) {
-        if ($gs.WebUrl -like "*$searchTerm*" -or $gs.Title -like "*$searchTerm*" -or $gs.WebUrl -eq $targetSiteFilter) {
-            $selectedGeneralSites.Add($gs)
+    Write-StatusMsg -Message "Filtrando por el sitio '$targetSiteFilter'..." -Status "WORKING"
+
+    # Intentar resolucion directa con Get-GraphSiteByUrl primero
+    $resolvedSiteObj = Get-GraphSiteByUrl -UrlOrPath $targetSiteFilter -TenantHost $tenantHostName
+    if ($resolvedSiteObj -and ($resolvedSiteObj.id -or $resolvedSiteObj.webUrl)) {
+        $sId = if ($resolvedSiteObj.id) { $resolvedSiteObj.id } else { $resolvedSiteObj.Id }
+        $sUrl = if ($resolvedSiteObj.webUrl) { $resolvedSiteObj.webUrl } else { $resolvedSiteObj.WebUrl }
+        $sTitle = if ($resolvedSiteObj.displayName) { $resolvedSiteObj.displayName } elseif ($resolvedSiteObj.name) { $resolvedSiteObj.name } else { $searchTerm }
+        $classInfo = Get-SiteClassification -WebUrl $sUrl -Title $sTitle -IsM365Group ($m365GroupUrls.ContainsKey($sUrl.ToLower()))
+
+        $selectedGeneralSites.Add([PSCustomObject]@{
+            Id        = $sId
+            Title     = $sTitle
+            WebUrl    = $sUrl
+            SiteType  = $classInfo.SiteType
+            Category  = $classInfo.Category
+            RawObject = $resolvedSiteObj
+        })
+        Write-StatusMsg -Message "Sitio resuelto correctamente: '$sTitle' ($sUrl)" -Status "SUCCESS"
+    } else {
+        foreach ($gs in $generalSitesList) {
+            if ($gs.WebUrl -like "*$searchTerm*" -or $gs.Title -like "*$searchTerm*" -or $gs.WebUrl -eq $targetSiteFilter) {
+                $selectedGeneralSites.Add($gs)
+            }
         }
     }
 
     if ($selectedGeneralSites.Count -eq 0) {
-        Write-StatusMsg -Message "No se encontro ningun sitio que coincida con '$targetSiteFilter'. Se analizaran todos los sitios." -Status "WARN"
-        foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
+        $sUrl = if ($targetSiteFilter -like "http*") { $targetSiteFilter } else { "https://${tenantHostName}/sites/" + ($targetSiteFilter -replace "^/sites/", "") }
+        $sTitle = ($sUrl -replace "https://[^/]+/(sites|teams)/", "") -replace "^/", ""
+        if (-not $sTitle) { $sTitle = $targetSiteFilter }
+        $graphSiteId = Format-GraphSiteIdentifier -InputIdOrUrl $sUrl -TenantHost $tenantHostName
+        $classInfo = Get-SiteClassification -WebUrl $sUrl -Title $sTitle -IsM365Group $false
+
+        $selectedGeneralSites.Add([PSCustomObject]@{
+            Id        = $graphSiteId
+            Title     = $sTitle
+            WebUrl    = $sUrl
+            SiteType  = $classInfo.SiteType
+            Category  = $classInfo.Category
+            RawObject = $null
+        })
+        Write-StatusMsg -Message "Sitio especifico configurado para auditoria: '$sTitle' ($sUrl)" -Status "SUCCESS"
     }
 } else {
     $isInteractive = $true
@@ -1877,7 +2129,7 @@ if ($targetSiteFilter) {
                                 if ($cPath) {
                                     try { $gSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cPath" } catch {}
                                     if (-not $gSite) {
-                                        $cleanP = Clean-SitePath -Text $cPath
+                                        $cleanP = Clear-SitePath -Text $cPath
                                         if ($cleanP) {
                                             try { $gSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${tenantHostName}:/sites/$cleanP" } catch {}
                                         }
@@ -1922,62 +2174,49 @@ if ($targetSiteFilter) {
 
             if (-not [string]::IsNullOrWhiteSpace($customSiteInput)) {
                 Write-StatusMsg -Message "Resolviendo sitio especifico '$customSiteInput'..." -Status "WORKING"
-                $targetHost = $tenantHostName
-                $cleanFilter = $customSiteInput.Trim()
-                if ($cleanFilter -match "https://([^/]+)/sites/(.*)") {
-                    $targetHost = $Matches[1]
-                    $cleanFilter = $Matches[2]
-                } elseif ($cleanFilter -match "https://([^/]+)") {
-                    $targetHost = $Matches[1]
-                    $cleanFilter = ""
+                
+                $resolvedSiteObj = Get-GraphSiteByUrl -UrlOrPath $customSiteInput -TenantHost $tenantHostName
+
+                if ($resolvedSiteObj -and ($resolvedSiteObj.id -or $resolvedSiteObj.webUrl)) {
+                    $sId = if ($resolvedSiteObj.id) { $resolvedSiteObj.id } else { $resolvedSiteObj.Id }
+                    $sUrl = if ($resolvedSiteObj.webUrl) { $resolvedSiteObj.webUrl } else { $resolvedSiteObj.WebUrl }
+                    $sTitle = if ($resolvedSiteObj.displayName) { $resolvedSiteObj.displayName } elseif ($resolvedSiteObj.name) { $resolvedSiteObj.name } else { $customSiteInput }
+                    $classInfo = Get-SiteClassification -WebUrl $sUrl -Title $sTitle -IsM365Group ($m365GroupUrls.ContainsKey($sUrl.ToLower()))
+
+                    $selectedSite = [PSCustomObject]@{
+                        Id        = $sId
+                        Title     = $sTitle
+                        WebUrl    = $sUrl
+                        SiteType  = $classInfo.SiteType
+                        Category  = $classInfo.Category
+                        RawObject = $resolvedSiteObj
+                    }
+                    $selectedGeneralSites.Add($selectedSite)
+                    Write-StatusMsg -Message "Sitio especifico resuelto correctamente: '$sTitle' ($sUrl)" -Status "SUCCESS"
                 } else {
-                    $cleanFilter = ($cleanFilter -replace "^/sites/", "") -replace "^/", ""
-                }
-
-                $resolvedSite = $null
-                if ($cleanFilter) {
-                    try {
-                        $directSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/${targetHost}:/sites/$cleanFilter"
-                        if ($directSite -and ($directSite.id -or $directSite.webUrl)) {
-                            $webUrl = if ($directSite.webUrl) { $directSite.webUrl } else { $directSite.WebUrl }
-                            $title = if ($directSite.displayName) { $directSite.displayName } else { $cleanFilter }
-                            $siteId = if ($directSite.id) { $directSite.id } else { $directSite.Id }
-                            $classInfo = Get-SiteClassification -WebUrl $webUrl -Title $title -IsM365Group $false
-                            $resolvedSite = [PSCustomObject]@{
-                                Id        = $siteId
-                                Title     = $title
-                                WebUrl    = $webUrl
-                                SiteType  = $classInfo.SiteType
-                                Category  = $classInfo.Category
-                                RawObject = $directSite
-                            }
-                        }
-                    } catch {}
-                }
-
-                if (-not $resolvedSite) {
-                    $matchedInList = $generalSitesList | Where-Object { $_.WebUrl -like "*$cleanFilter*" -or $_.Title -like "*$cleanFilter*" } | Select-Object -First 1
+                    $cleanFilter = ($customSiteInput -replace "https://[^/]+/(sites|teams)/", "") -replace "https://[^/]+", "" -replace "^/", ""
+                    $matchedInList = $generalSitesList | Where-Object { $_.WebUrl -like "*$cleanFilter*" -or $_.Title -like "*$cleanFilter*" -or $_.WebUrl -eq $customSiteInput } | Select-Object -First 1
                     if ($matchedInList) {
-                        $resolvedSite = $matchedInList
+                        $selectedGeneralSites.Add($matchedInList)
+                        Write-StatusMsg -Message "Sitio encontrado en catalogo: '$($matchedInList.Title)' ($($matchedInList.WebUrl))" -Status "SUCCESS"
                     } else {
-                        $fullUrl = if ($customSiteInput -like "http*") { $customSiteInput } else { "https://${tenantHostName}/sites/$cleanFilter" }
-                        $resolvedSite = [PSCustomObject]@{
-                            Id        = $fullUrl
-                            Title     = if ($cleanFilter) { $cleanFilter } else { "Sitio Especificado" }
-                            WebUrl    = $fullUrl
-                            SiteType  = "Sitio especifico por URL"
-                            Category  = "General"
+                        $sUrl = if ($customSiteInput -like "http*") { $customSiteInput } else { "https://${tenantHostName}/sites/" + ($customSiteInput -replace "^/sites/", "") }
+                        $sTitle = ($sUrl -replace "https://[^/]+/(sites|teams)/", "") -replace "^/", ""
+                        if (-not $sTitle) { $sTitle = $customSiteInput }
+                        $graphSiteId = Format-GraphSiteIdentifier -InputIdOrUrl $sUrl -TenantHost $tenantHostName
+                        $classInfo = Get-SiteClassification -WebUrl $sUrl -Title $sTitle -IsM365Group $false
+
+                        $selectedSite = [PSCustomObject]@{
+                            Id        = $graphSiteId
+                            Title     = $sTitle
+                            WebUrl    = $sUrl
+                            SiteType  = $classInfo.SiteType
+                            Category  = $classInfo.Category
                             RawObject = $null
                         }
+                        $selectedGeneralSites.Add($selectedSite)
+                        Write-StatusMsg -Message "Sitio especifico configurado para auditoria: '$sTitle' ($sUrl)" -Status "SUCCESS"
                     }
-                }
-
-                if ($resolvedSite) {
-                    $selectedGeneralSites.Add($resolvedSite)
-                    Write-StatusMsg -Message "Sitio especifico seleccionado: '$($resolvedSite.Title)' ($($resolvedSite.WebUrl))" -Status "SUCCESS"
-                } else {
-                    Write-StatusMsg -Message "No se pudo encontrar el sitio '$customSiteInput'. Se auditaran todos los sitios." -Status "WARN"
-                    foreach ($s in $generalSitesList) { $selectedGeneralSites.Add($s) }
                 }
             } else {
                 Write-StatusMsg -Message "Entrada vacia. Se auditaran todos los sitios." -Status "WARN"
@@ -2275,7 +2514,7 @@ foreach ($site in $script:finalAuditedSites) {
         # Fallback 2: Buscar grupo M365 en Graph API por mailNickname o displayName
         if (-not $groupId) {
             $cleanSiteName = ($site.WebUrl -replace "https://[^/]+", "") -replace "^/sites/", "" -replace "^/", ""
-            $cleanTitle = Clean-SitePath -Text $site.Title
+            $cleanTitle = Clear-SitePath -Text $site.Title
             $searchTerms = @($cleanSiteName, $site.Title, $cleanTitle) | Where-Object { [string]::IsNullOrWhiteSpace($_) -eq $false } | Select-Object -Unique
             
             foreach ($st in $searchTerms) {
@@ -2384,117 +2623,151 @@ foreach ($site in $script:finalAuditedSites) {
                 $inheritanceDetail = "Heredado de: $inheritedName"
             }
 
-            if ($perm.grantedToV2.user) {
-                $uName = $perm.grantedToV2.user.displayName
-                $uEmail = if ($perm.grantedToV2.user.userPrincipalName) { $perm.grantedToV2.user.userPrincipalName } elseif ($perm.grantedToV2.user.email) { $perm.grantedToV2.user.email } else { $perm.grantedToV2.user.id }
+            # Recopilar todas las identidades asociadas a este permiso
+            $identitiesToProcess = [System.Collections.Generic.List[PSObject]]::new()
+            if ($perm.grantedToV2) { $identitiesToProcess.Add($perm.grantedToV2) }
+            if ($perm.grantedToIdentitiesV2) { foreach ($idObj in $perm.grantedToIdentitiesV2) { $identitiesToProcess.Add($idObj) } }
+            if ($perm.grantedTo) { $identitiesToProcess.Add($perm.grantedTo) }
+            if ($perm.grantedToIdentities) { foreach ($idObj in $perm.grantedToIdentities) { $identitiesToProcess.Add($idObj) } }
+            if ($perm.link) {
+                if ($perm.link.grantedToV2) { $identitiesToProcess.Add($perm.link.grantedToV2) }
+                if ($perm.link.grantedToIdentitiesV2) { foreach ($idObj in $perm.link.grantedToIdentitiesV2) { $identitiesToProcess.Add($idObj) } }
+            }
 
-                if ($uEmail -like "*#EXT#*") {
-                    if ($perm.grantedToV2.user.email) { $uEmail = $perm.grantedToV2.user.email }
-                    elseif ($uEmail -match "([^=]+)_([^@]+)#EXT#@") { $uEmail = "$($Matches[1])@$($Matches[2])" }
-                }
+            foreach ($idEntry in $identitiesToProcess) {
+                if ($idEntry.user) {
+                    $uName = if ($idEntry.user.displayName) { $idEntry.user.displayName } else { "Usuario" }
+                    $uEmail = if ($idEntry.user.userPrincipalName) { $idEntry.user.userPrincipalName } elseif ($idEntry.user.email) { $idEntry.user.email } else { $idEntry.user.id }
 
-                if ($uEmail -notlike "*app@sharepoint*") {
-                    $permissionReport.Add([PSCustomObject]@{
-                        UserName              = $uName
-                        UserEmail             = $uEmail
-                        SiteTitle             = $site.Title
-                        SiteUrl               = $site.WebUrl
-                        SiteType              = $site.SiteType
-                        SitePermissions       = $sitePermission
-                        AccessSource          = "Usuario directo"
-                        HasInheritanceEnabled = $hasInheritance
-                        InheritanceDetail     = $inheritanceDetail
-                        AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-                    })
-                }
-            } elseif ($perm.grantedToV2.group) {
-                $grpId = $perm.grantedToV2.group.id
-                $grpName = $perm.grantedToV2.group.displayName
-                $grpMail = $perm.grantedToV2.group.email
+                    if ($uEmail -like "*#EXT#*") {
+                        if ($idEntry.user.email) { $uEmail = $idEntry.user.email }
+                        elseif ($uEmail -match "([^=]+)_([^@]+)#EXT#@") { $uEmail = "$($Matches[1])@$($Matches[2])" }
+                    }
 
-                if (-not $grpId -and $grpMail) {
-                    try {
-                        $nick = ($grpMail -split "@")[0]
-                        $foundGroup = Invoke-GraphPaginatedRequest -Uri "v1.0/groups?`$filter=mailNickname eq '$nick'"
-                        if ($foundGroup -and $foundGroup.Count -gt 0 -and $foundGroup[0].id) {
-                            $grpId = $foundGroup[0].id
-                        }
-                    } catch {}
-                }
+                    if ($uEmail -notlike "*app@sharepoint*" -and $uEmail -notlike "*system*") {
+                        $permissionReport.Add([PSCustomObject]@{
+                            UserName              = $uName
+                            UserEmail             = $uEmail
+                            SiteTitle             = $site.Title
+                            SiteUrl               = $site.WebUrl
+                            SiteType              = $site.SiteType
+                            SitePermissions       = $sitePermission
+                            AccessSource          = "Usuario directo"
+                            HasInheritanceEnabled = $hasInheritance
+                            InheritanceDetail     = $inheritanceDetail
+                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                        })
+                    }
+                } elseif ($idEntry.group) {
+                    $grpId = $idEntry.group.id
+                    $grpName = if ($idEntry.group.displayName) { $idEntry.group.displayName } else { "Grupo" }
+                    $grpMail = $idEntry.group.email
 
-                if ($grpId) {
-                    try {
-                        $grpOwners = Invoke-GraphPaginatedRequest -Uri "v1.0/groups/$grpId/owners"
-                        if ($grpOwners -and $grpOwners.Count -gt 0) {
-                            foreach ($o in $grpOwners) {
-                                $oName = if ($o.displayName) { $o.displayName } else { "Propietario de grupo" }
-                                $oEmail = if ($o.userPrincipalName) { $o.userPrincipalName } elseif ($o.mail) { $o.mail } else { $o.id }
-                                if ($oEmail -like "*#EXT#*") {
-                                    if ($o.mail) { $oEmail = $o.mail }
-                                    elseif ($oEmail -match "([^=]+)_([^@]+)#EXT#@") { $oEmail = "$($Matches[1])@$($Matches[2])" }
-                                }
-                                if ($oEmail -notlike "*app@sharepoint*") {
-                                    $permissionReport.Add([PSCustomObject]@{
-                                        UserName              = $oName
-                                        UserEmail             = $oEmail
-                                        SiteTitle             = $site.Title
-                                        SiteUrl               = $site.WebUrl
-                                        SiteType              = $site.SiteType
-                                        SitePermissions       = "Control total (owner de grupo entra id)"
-                                        AccessSource          = "Usuario via grupo entra id ($grpName)"
-                                        HasInheritanceEnabled = $hasInheritance
-                                        InheritanceDetail     = $inheritanceDetail
-                                        AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-                                    })
+                    if (-not $grpId -and $grpMail) {
+                        try {
+                            $nick = ($grpMail -split "@")[0]
+                            $foundGroup = Invoke-GraphPaginatedRequest -Uri "v1.0/groups?`$filter=mailNickname eq '$nick'"
+                            if ($foundGroup -and $foundGroup.Count -gt 0 -and $foundGroup[0].id) {
+                                $grpId = $foundGroup[0].id
+                            }
+                        } catch {}
+                    }
+
+                    $expandedCount = 0
+
+                    if ($grpId) {
+                        try {
+                            $grpOwners = Invoke-GraphPaginatedRequest -Uri "v1.0/groups/$grpId/owners"
+                            if ($grpOwners -and $grpOwners.Count -gt 0) {
+                                foreach ($o in $grpOwners) {
+                                    $oName = if ($o.displayName) { $o.displayName } else { "Propietario de grupo" }
+                                    $oEmail = if ($o.userPrincipalName) { $o.userPrincipalName } elseif ($o.mail) { $o.mail } else { $o.id }
+                                    if ($oEmail -like "*#EXT#*") {
+                                        if ($o.mail) { $oEmail = $o.mail }
+                                        elseif ($oEmail -match "([^=]+)_([^@]+)#EXT#@") { $oEmail = "$($Matches[1])@$($Matches[2])" }
+                                    }
+                                    if ($oEmail -notlike "*app@sharepoint*" -and $oEmail -notlike "*system*") {
+                                        $permissionReport.Add([PSCustomObject]@{
+                                            UserName              = $oName
+                                            UserEmail             = $oEmail
+                                            SiteTitle             = $site.Title
+                                            SiteUrl               = $site.WebUrl
+                                            SiteType              = $site.SiteType
+                                            SitePermissions       = "Control total (owner de grupo $grpName)"
+                                            AccessSource          = "Usuario via grupo entra id ($grpName)"
+                                            HasInheritanceEnabled = $hasInheritance
+                                            InheritanceDetail     = $inheritanceDetail
+                                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                                        })
+                                        $expandedCount++
+                                    }
                                 }
                             }
-                        }
-                    } catch {}
+                        } catch {}
 
-                    try {
-                        $grpMembers = Invoke-GraphPaginatedRequest -Uri "v1.0/groups/$grpId/members"
-                        if ($grpMembers -and $grpMembers.Count -gt 0) {
-                            foreach ($m in $grpMembers) {
-                                $mName = if ($m.displayName) { $m.displayName } else { "Miembro de grupo" }
-                                $mEmail = if ($m.userPrincipalName) { $m.userPrincipalName } elseif ($m.mail) { $m.mail } else { $m.id }
-                                if ($mEmail -like "*#EXT#*") {
-                                    if ($m.mail) { $mEmail = $m.mail }
-                                    elseif ($mEmail -match "([^=]+)_([^@]+)#EXT#@") { $mEmail = "$($Matches[1])@$($Matches[2])" }
-                                }
-                                if ($mEmail -notlike "*app@sharepoint*") {
-                                    $permissionReport.Add([PSCustomObject]@{
-                                        UserName              = $mName
-                                        UserEmail             = $mEmail
-                                        SiteTitle             = $site.Title
-                                        SiteUrl               = $site.WebUrl
-                                        SiteType              = $site.SiteType
-                                        SitePermissions       = "Edicion / colaboracion (member de grupo entra id)"
-                                        AccessSource          = "Usuario via grupo entra id ($grpName)"
-                                        HasInheritanceEnabled = $hasInheritance
-                                        InheritanceDetail     = $inheritanceDetail
-                                        AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-                                    })
+                        try {
+                            $grpMembers = Invoke-GraphPaginatedRequest -Uri "v1.0/groups/$grpId/members"
+                            if ($grpMembers -and $grpMembers.Count -gt 0) {
+                                foreach ($m in $grpMembers) {
+                                    $mName = if ($m.displayName) { $m.displayName } else { "Miembro de grupo" }
+                                    $mEmail = if ($m.userPrincipalName) { $m.userPrincipalName } elseif ($m.mail) { $m.mail } else { $m.id }
+                                    if ($mEmail -like "*#EXT#*") {
+                                        if ($m.mail) { $mEmail = $m.mail }
+                                        elseif ($mEmail -match "([^=]+)_([^@]+)#EXT#@") { $mEmail = "$($Matches[1])@$($Matches[2])" }
+                                    }
+                                    if ($mEmail -notlike "*app@sharepoint*" -and $mEmail -notlike "*system*") {
+                                        $permissionReport.Add([PSCustomObject]@{
+                                            UserName              = $mName
+                                            UserEmail             = $mEmail
+                                            SiteTitle             = $site.Title
+                                            SiteUrl               = $site.WebUrl
+                                            SiteType              = $site.SiteType
+                                            SitePermissions       = "Edicion / colaboracion (member de grupo $grpName)"
+                                            AccessSource          = "Usuario via grupo entra id ($grpName)"
+                                            HasInheritanceEnabled = $hasInheritance
+                                            InheritanceDetail     = $inheritanceDetail
+                                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                                        })
+                                        $expandedCount++
+                                    }
                                 }
                             }
-                        }
-                    } catch {}
-                }
-            } elseif ($perm.grantedTo) {
-                $uName = $perm.grantedTo.user.displayName
-                $uEmail = if ($perm.grantedTo.user.userPrincipalName) { $perm.grantedTo.user.userPrincipalName } else { $perm.grantedTo.user.id }
-                if ($uEmail -notlike "*app@sharepoint*") {
-                    $permissionReport.Add([PSCustomObject]@{
-                        UserName              = $uName
-                        UserEmail             = $uEmail
-                        SiteTitle             = $site.Title
-                        SiteUrl               = $site.WebUrl
-                        SiteType              = $site.SiteType
-                        SitePermissions       = $sitePermission
-                        AccessSource          = "Usuario directo"
-                        HasInheritanceEnabled = $hasInheritance
-                        InheritanceDetail     = $inheritanceDetail
-                        AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-                    })
+                        } catch {}
+                    }
+
+                    # Si no se expandieron miembros o el ID no estaba disponible, registrar el grupo como entidad con permiso
+                    if ($expandedCount -eq 0) {
+                        $permissionReport.Add([PSCustomObject]@{
+                            UserName              = $grpName
+                            UserEmail             = if ($grpMail) { "Grupo: $grpMail" } else { "Grupo: $grpName" }
+                            SiteTitle             = $site.Title
+                            SiteUrl               = $site.WebUrl
+                            SiteType              = $site.SiteType
+                            SitePermissions       = $sitePermission
+                            AccessSource          = "Grupo Entra ID / SharePoint ($grpName)"
+                            HasInheritanceEnabled = $hasInheritance
+                            InheritanceDetail     = $inheritanceDetail
+                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                        })
+                    }
+                } elseif ($idEntry.siteUser) {
+                    $suName = if ($idEntry.siteUser.displayName) { $idEntry.siteUser.displayName } else { "Usuario sharepoint" }
+                    $suEmail = if ($idEntry.siteUser.userPrincipalName) { $idEntry.siteUser.userPrincipalName } elseif ($idEntry.siteUser.email) { $idEntry.siteUser.email } else { $idEntry.siteUser.id }
+
+                    if ($suEmail -notlike "*app@sharepoint*" -and $suEmail -notlike "*system*") {
+                        $permissionReport.Add([PSCustomObject]@{
+                            UserName              = $suName
+                            UserEmail             = $suEmail
+                            SiteTitle             = $site.Title
+                            SiteUrl               = $site.WebUrl
+                            SiteType              = $site.SiteType
+                            SitePermissions       = $sitePermission
+                            AccessSource          = "Usuario de sitio sharepoint"
+                            HasInheritanceEnabled = $hasInheritance
+                            InheritanceDetail     = $inheritanceDetail
+                            AuditDate             = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                        })
+                    }
                 }
             }
         }
@@ -2563,6 +2836,11 @@ if ($permissionReport.Count -gt 0) {
     $subsitesCount = ($script:finalAuditedSites | Where-Object { $_.SiteType -like "*Subsitio*" }).Count
     $teamsCount = ($script:finalAuditedSites | Where-Object { $_.SiteType -like "*Teams*" -or $_.SiteType -like "*M365*" }).Count
     $foldersCount = ($script:finalAuditedSites | Where-Object { $_.SiteType -like "*Carpeta*" }).Count
+
+    if ([string]::IsNullOrWhiteSpace($HtmlOutputPath)) {
+        $reportFileName = Get-ReportFileName -SiteNameInput $auditedSiteName
+        $HtmlOutputPath = [System.IO.Path]::Combine("Reportes", $reportFileName)
+    }
 
     try {
         Export-PermissionsToHtml -ReportData $permissionReport -UserSummaryData $userSummary -FilePath $HtmlOutputPath -UserAccount $userAccount -AuditedSiteName $auditedSiteName -TotalSitesCount $script:finalAuditedSites.Count -PrimarySitesCount $primaryCount -SubsitesCount $subsitesCount -TeamSitesCount $teamsCount -FoldersCount $foldersCount -ElapsedTime $elapsedTime
