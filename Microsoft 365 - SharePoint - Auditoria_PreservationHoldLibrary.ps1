@@ -1,22 +1,11 @@
 <#
 .SYNOPSIS
-    SharePoint Online - Auditoria completa de almacenamiento no productivo con Microsoft Graph API y Entra ID.
+    Auditoria de almacenamiento en SharePoint Online (PreservationHoldLibrary, papelera e historial de versiones).
 
 .DESCRIPTION
-    Audita, cuantifica y clasifica el espacio consumido por tres fuentes principales de almacenamiento no productivo en SharePoint Online:
-    1. PreservationHoldLibrary: archivos retenidos obligatoriamente por directivas de Microsoft Purview, retencion o eDiscovery/Litigation Hold.
-    2. Papelera de Reciclaje (1ª y 2ª etapa): elementos eliminados pendientes de purga definitiva.
-    3. Historial de Versiones: espacio acumulado por versiones antiguas de documentos en bibliotecas.
-
-    Capacidades y Caracteristicas:
-    - Autenticacion desatendida con App Registration de Entra ID (Client Secret o Certificado digital).
-    - Soporte para autenticacion delegada interactiva en navegador (usuario administrador).
-    - Descubrimiento multicanal exhaustivo de sitios (sitio raiz, getAllSites, busqueda global, grupos M365/Teams).
-    - Resolucion automatica del dominio de SharePoint del tenant.
-    - Soporte para entrada directa por parametro (-SiteUrl, -SiteName) o por archivo CSV (-CsvPath).
-    - Control avanzado de throttling (HTTP 429/503) con reintentos exponenciales y respeto a cabeceras Retry-After.
-    - Resiliencia por sitio: si un sitio individual presenta un error (ej. permisos insuficientes), se registra en la lista de fallos y el script continua con los demas.
-    - Generacion de informe HTML interactivo corporativo con Fluent UI, buscador instantaneo, ordenacion, modo claro/oscuro y exportacion CSV integrada.
+    Analiza el espacio ocupado por directivas de retencion (Purview/eDiscovery), papelera de reciclaje
+    (1ª y 2ª etapa) e historial de versiones en sitios de SharePoint Online. Permite ejecucion desatendida
+    mediante App Registration (secret o certificado) o sesion interactiva, generando un informe en HTML y CSV.
 
 .PARAMETER TenantId
     ID del Directorio (Tenant ID) de Microsoft 365 / Entra ID (formato GUID o dominio 'contoso.onmicrosoft.com').
@@ -359,9 +348,91 @@ function Get-SpainDate {
     }
 }
 
-# =========================================================================
-# SECCION 2: MOTOR DE LLAMADAS Y PAGINACION GRAPH / REST
-# =========================================================================
+# --- Motor de llamadas Graph / REST y gestion de sesion ---
+
+$script:SavedTenantId = $null
+$script:SavedClientId = $null
+$script:SavedClientSecret = $null
+$script:SavedCertThumbprint = $null
+$script:SavedCertPath = $null
+$script:SavedCertPassword = $null
+$script:LastGraphTokenTime = $null
+$script:spAccessToken = $null
+$script:spTokenTime = $null
+
+function Update-GraphTokenSession {
+    param([switch]$Force)
+
+    if (-not $Force -and $script:LastGraphTokenTime) {
+        $elapsedMin = ((Get-Date).ToUniversalTime() - $script:LastGraphTokenTime).TotalMinutes
+        if ($elapsedMin -lt 45) {
+            return $true
+        }
+    }
+
+    $canRenewApp = ($script:SavedTenantId -and $script:SavedClientId -and ($script:SavedClientSecret -or $script:SavedCertThumbprint -or $script:SavedCertPath))
+    if (-not $canRenewApp) {
+        return $false
+    }
+
+    Write-StatusMsg -Message "Renovando token de acceso con App Registration..." -Status "WORKING"
+    try {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue
+
+        if ($script:SavedTenantId -and $script:SavedClientId -and $script:SavedCertThumbprint) {
+            Connect-MgGraph -TenantId $script:SavedTenantId -ClientId $script:SavedClientId -CertificateThumbprint $script:SavedCertThumbprint -ErrorAction Stop
+        }
+        elseif ($script:SavedTenantId -and $script:SavedClientId -and $script:SavedCertPath) {
+            $certParams = @{
+                TenantId        = $script:SavedTenantId
+                ClientId        = $script:SavedClientId
+                CertificatePath = $script:SavedCertPath
+                ErrorAction     = "Stop"
+            }
+            if ($script:SavedCertPassword) {
+                if ($script:SavedCertPassword -is [System.Security.SecureString]) {
+                    $certParams["CertificatePassword"] = $script:SavedCertPassword
+                } else {
+                    $certParams["CertificatePassword"] = (ConvertTo-SecureString $script:SavedCertPassword -AsPlainText -Force)
+                }
+            }
+            Connect-MgGraph @certParams
+        }
+        elseif ($script:SavedTenantId -and $script:SavedClientId -and $script:SavedClientSecret) {
+            $secSecret = if ($script:SavedClientSecret -is [System.Security.SecureString]) {
+                $script:SavedClientSecret
+            } else {
+                ConvertTo-SecureString $script:SavedClientSecret -AsPlainText -Force
+            }
+            $plainSecret = if ($script:SavedClientSecret -is [System.Security.SecureString]) {
+                [System.Net.NetworkCredential]::new("", $script:SavedClientSecret).Password
+            } else {
+                [string]$script:SavedClientSecret
+            }
+            $psCred = [System.Management.Automation.PSCredential]::new($script:SavedClientId, $secSecret)
+
+            try {
+                Connect-MgGraph -TenantId $script:SavedTenantId -ClientSecretCredential $psCred -ErrorAction Stop
+            } catch {
+                try {
+                    Connect-MgGraph -TenantId $script:SavedTenantId -ClientId $script:SavedClientId -ClientSecret $secSecret -ErrorAction Stop
+                } catch {
+                    Connect-MgGraph -TenantId $script:SavedTenantId -ClientId $script:SavedClientId -ClientSecret $plainSecret -ErrorAction Stop
+                }
+            }
+        }
+
+        $script:LastGraphTokenTime = [datetime]::UtcNow
+        $script:spAccessToken = $null
+        $script:spTokenTime = $null
+
+        Write-StatusMsg -Message "Token de acceso renovado correctamente." -Status "SUCCESS"
+        return $true
+    } catch {
+        Write-StatusMsg -Message "No se pudo auto-renovar el token de Graph: $($_.Exception.Message)" -Status "WARN"
+        return $false
+    }
+}
 
 function Invoke-GraphRequestWithRetry {
     param(
@@ -370,6 +441,11 @@ function Invoke-GraphRequestWithRetry {
         [int]$MaxRetries = 4,
         [int]$BaseDelaySeconds = 2
     )
+
+    if ($script:LastGraphTokenTime -and ((Get-Date).ToUniversalTime() - $script:LastGraphTokenTime).TotalMinutes -ge 45) {
+        Update-GraphTokenSession | Out-Null
+    }
+
     $attempt = 0
     while ($attempt -le $MaxRetries) {
         try {
@@ -380,6 +456,23 @@ function Invoke-GraphRequestWithRetry {
             $statusCode = 0
             if ($ex.Response -and $ex.Response.StatusCode) {
                 $statusCode = [int]$ex.Response.StatusCode
+            }
+
+            $isAuthExpired = ($statusCode -eq 401 -or 
+                              $ex.Message -like "*401*" -or 
+                              $ex.Message -like "*token is expired*" -or 
+                              $ex.Message -like "*Lifetime validation failed*" -or 
+                              $ex.Message -like "*InvalidAuthenticationToken*" -or 
+                              $ex.Message -like "*Unauthorized*")
+
+            if ($isAuthExpired -and $attempt -lt $MaxRetries) {
+                $attempt++
+                Write-StatusMsg -Message "Token expirado (HTTP 401). Renovando credenciales..." -Status "WARN"
+                $renewed = Update-GraphTokenSession -Force
+                if ($renewed) {
+                    Start-Sleep -Seconds 2
+                    continue
+                }
             }
 
             $isThrottled = ($statusCode -eq 429 -or $statusCode -eq 503 -or $statusCode -eq 504 -or 
@@ -462,17 +555,26 @@ function Invoke-GraphPaginatedRequest {
     return $results
 }
 
-# Cache de token para SharePoint REST
-$script:spAccessToken = $null
-
 function Get-SharePointDirectToken {
     param(
         [string]$TenantId,
         [string]$ClientId,
         [string]$ClientSecret,
-        [string]$TenantHost
+        [string]$TenantHost,
+        [switch]$Force
     )
-    if ($script:spAccessToken) { return $script:spAccessToken }
+    # Si no se proporcionan explicitamente los parametros, usar los almacenados en la sesion
+    if (-not $TenantId -and $script:SavedTenantId) { $TenantId = $script:SavedTenantId }
+    if (-not $ClientId -and $script:SavedClientId) { $ClientId = $script:SavedClientId }
+    if (-not $ClientSecret -and $script:SavedClientSecret) { $ClientSecret = $script:SavedClientSecret }
+
+    if (-not $Force -and $script:spAccessToken -and $script:spTokenTime) {
+        $elapsedMinutes = ((Get-Date).ToUniversalTime() - $script:spTokenTime).TotalMinutes
+        if ($elapsedMinutes -lt 45) {
+            return $script:spAccessToken
+        }
+    }
+
     if (-not $TenantId -or -not $ClientId -or -not $ClientSecret -or -not $TenantHost) { return $null }
 
     $secPlain = if ($ClientSecret -is [System.Security.SecureString]) {
@@ -481,7 +583,6 @@ function Get-SharePointDirectToken {
         [string]$ClientSecret
     }
 
-    # Intento 1: OAuth2 v2.0 (scope .default)
     try {
         $tokenUri = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
         $body = @{
@@ -493,13 +594,13 @@ function Get-SharePointDirectToken {
         $resp = Invoke-RestMethod -Uri $tokenUri -Method POST -Body $body -ContentType "application/x-www-form-urlencoded" -ErrorAction Stop
         if ($resp -and $resp.access_token) {
             $script:spAccessToken = $resp.access_token
+            $script:spTokenTime = [datetime]::UtcNow
             return $script:spAccessToken
         }
     } catch {
         Write-Verbose "OAuth v2 fallo para SharePoint: $($_.Exception.Message)"
     }
 
-    # Intento 2: OAuth v1.0 legacy (resource)
     try {
         $tokenUri1 = "https://login.microsoftonline.com/$TenantId/oauth2/token"
         $body1 = @{
@@ -511,6 +612,7 @@ function Get-SharePointDirectToken {
         $resp1 = Invoke-RestMethod -Uri $tokenUri1 -Method POST -Body $body1 -ContentType "application/x-www-form-urlencoded" -ErrorAction Stop
         if ($resp1 -and $resp1.access_token) {
             $script:spAccessToken = $resp1.access_token
+            $script:spTokenTime = [datetime]::UtcNow
             return $script:spAccessToken
         }
     } catch {
@@ -629,9 +731,7 @@ function Get-DriveItemsRecursive {
     return $res
 }
 
-# =========================================================================
-# SECCION 3: FUNCIONES DE EXTRACCION DE DATOS DE ALMACENAMIENTO
-# =========================================================================
+# --- Extraccion de almacenamiento (papelera, librerias y versiones) ---
 
 function Get-SiteRecycleBinItems {
     param(
@@ -645,7 +745,6 @@ function Get-SiteRecycleBinItems {
     $results = [System.Collections.Generic.List[PSObject]]::new()
     $seenMap = @{}
 
-    # Metodo A: SharePoint REST API (/_api/web/recyclebin y /_api/site/recyclebin)
     $spToken = Get-SharePointDirectToken -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret -TenantHost $TenantHost
     if ($spToken -and $SiteWebUrl) {
         $headers = @{
@@ -697,7 +796,6 @@ function Get-SiteRecycleBinItems {
         }
     }
 
-    # Metodo B: Microsoft Graph API (/recycleBin/items)
     $canonicalId = $SiteId
     if (-not $canonicalId -or $canonicalId -like "*:*" -or $canonicalId -notmatch "^[^,]+,[^,]+,[^,]+$") {
         $resolved = Get-GraphSiteByUrl -UrlOrPath $(if ($SiteWebUrl) { $SiteWebUrl } else { $SiteId }) -TenantHost $TenantHost
@@ -819,9 +917,7 @@ function Get-SiteLibraryVersionSettings {
     return $results
 }
 
-# =========================================================================
-# SECCION 4: GENERACION DE REPORTES (HTML INTERACTIVO Y CSV)
-# =========================================================================
+# --- Generacion de reporte HTML ---
 
 function Export-UnifiedReportToHtml {
     param(
@@ -1821,10 +1917,6 @@ function Export-UnifiedReportToHtml {
     Write-StatusMsg -Message "Informe HTML guardado en: $resolvedPath" -Status "SUCCESS"
 }
 
-# =========================================================================
-# SECCION 5: ORQUESTADOR PRINCIPAL DEL SCRIPT
-# =========================================================================
-
 Clear-Host
 Write-Host ""
 Write-Host "  ==========================================================================" -ForegroundColor Cyan
@@ -1832,19 +1924,13 @@ Write-Host "   Microsoft 365 SharePoint Online  |  Auditoría de espacio" -Foreg
 Write-Host "   PreservationHold (Purview)  |  Papelera de reciclaje  |  Versiones" -ForegroundColor DarkCyan
 Write-Host "  ==========================================================================" -ForegroundColor Cyan
 
-# -------------------------------------------------------------------------
-# VALIDAR MODULO MICROSOFT GRAPH AUTHENTICATION
-# -------------------------------------------------------------------------
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication)) {
-    Write-StatusMsg -Message "Instalando modulo 'Microsoft.Graph.Authentication'..." -Status "WORKING"
+    Write-StatusMsg -Message "Instalando modulo Microsoft.Graph.Authentication..." -Status "WORKING"
     Install-Module Microsoft.Graph.Authentication -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 }
 Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
 
-# -------------------------------------------------------------------------
-# PASO 1: Autenticacion y Conexion con Microsoft Graph
-# -------------------------------------------------------------------------
-Write-StepHeader -StepNumber 1 -TotalSteps 5 -Title "Conexión y autenticación con Microsoft Graph API"
+Write-StepHeader -StepNumber 1 -TotalSteps 5 -Title "Conexion con Microsoft Graph API"
 
 try {
     $hasAppCredentials = ($TenantId -and $ClientId -and ($ClientSecret -or $CertificateThumbprint -or $CertificatePath))
@@ -1870,12 +1956,10 @@ try {
     if (-not $context) {
         Write-StatusMsg -Message "Estableciendo sesion con Microsoft Graph..." -Status "WORKING"
 
-        # Opcion A: Certificado instalado (Thumbprint)
         if ($TenantId -and $ClientId -and $CertificateThumbprint) {
             Write-StatusMsg -Message "Autenticando con App Registration (Certificado: $CertificateThumbprint)..." -Status "WORKING"
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint -ErrorAction Stop
         }
-        # Opcion B: Archivo de Certificado (.pfx/.cer)
         elseif ($TenantId -and $ClientId -and $CertificatePath) {
             Write-StatusMsg -Message "Autenticando con App Registration (Archivo: $CertificatePath)..." -Status "WORKING"
             $certParams = @{
@@ -1893,9 +1977,8 @@ try {
             }
             Connect-MgGraph @certParams
         }
-        # Opcion C: Client Secret
         elseif ($TenantId -and $ClientId -and $ClientSecret) {
-            Write-StatusMsg -Message "Autenticando con App Registration (Client Secret)..." -Status "WORKING"
+            Write-StatusMsg -Message "Autenticando con App Registration..." -Status "WORKING"
             
             $secSecret = if ($ClientSecret -is [System.Security.SecureString]) {
                 $ClientSecret
@@ -1919,7 +2002,6 @@ try {
                 }
             }
         }
-        # Opcion D: Sesion interactiva o solicitud de credenciales
         else {
             $isInteractive = $true
             try {
@@ -1945,6 +2027,7 @@ try {
                     if ($inTenant -and $inClient -and $inSecret) {
                         $TenantId = $inTenant.Trim()
                         $ClientId = $inClient.Trim()
+                        $ClientSecret = $inSecret
                         $inPsCred = [System.Management.Automation.PSCredential]::new($ClientId, $inSecret)
                         try {
                             Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $inPsCred -ErrorAction Stop
@@ -1969,6 +2052,15 @@ try {
         }
         $context = Get-MgContext
     }
+
+    # Persistir credenciales y marca de tiempo en variables de sesion para renovacion automatica transparente
+    $script:SavedTenantId = $TenantId
+    $script:SavedClientId = $ClientId
+    $script:SavedClientSecret = $ClientSecret
+    $script:SavedCertThumbprint = $CertificateThumbprint
+    $script:SavedCertPath = $CertificatePath
+    $script:SavedCertPassword = $CertificatePassword
+    $script:LastGraphTokenTime = [datetime]::UtcNow
 
     $authTypeStr = if ($context.AuthType -eq "AppOnly") { "App Registration (Service principal)" } else { "Delegada (usuario interactivo)" }
     $identityDisplay = if ($context.AppName) {
@@ -2036,15 +2128,11 @@ if (-not $tenantHostName) {
     }
 }
 
-# -------------------------------------------------------------------------
-# PASO 2: Descubrimiento y Seleccion de Sitios
-# -------------------------------------------------------------------------
-Write-StepHeader -StepNumber 2 -TotalSteps 5 -Title "Descubrimiento y selección de sitios a auditar"
+Write-StepHeader -StepNumber 2 -TotalSteps 5 -Title "Seleccion de sitios a auditar"
 
 $targetSiteFilter = if ($SiteUrl) { $SiteUrl } elseif ($SiteName) { $SiteName } else { "" }
 $selectedGeneralSites = [System.Collections.Generic.List[PSObject]]::new()
 
-# Caso A: Archivo CSV especificado
 if ($CsvPath) {
     if (Test-Path $CsvPath) {
         Write-StatusMsg -Message "Importando sitios desde el archivo CSV: $CsvPath" -Status "WORKING"
@@ -2083,7 +2171,6 @@ if ($CsvPath) {
         return
     }
 }
-# Caso B: URL o Nombre directo por parametro
 elseif ($targetSiteFilter) {
     Write-StatusMsg -Message "Localizando el sitio especificado: '$targetSiteFilter'..." -Status "WORKING"
     $singleSite = Get-GraphSiteByUrl -UrlOrPath $targetSiteFilter -TenantHost $tenantHostName
@@ -2104,13 +2191,11 @@ elseif ($targetSiteFilter) {
         Write-StatusMsg -Message "Sitio configurado para auditoria: '$sTitle' ($sUrl)" -Status "SUCCESS"
     }
 }
-# Caso C: Descubrimiento multicanal de todos los sitios y seleccion interactiva
 else {
     Write-StatusMsg -Message "Consultando el catalogo de sitios en Microsoft Graph..." -Status "WORKING"
     $allSitesRaw = [System.Collections.Generic.List[PSObject]]::new()
     $m365GroupUrls = @{}
 
-    # 1. Sitio Raiz del Tenant
     try {
         $rootSite = Invoke-GraphRequestWithRetry -Uri "v1.0/sites/root"
         if ($rootSite -and ($rootSite.id -or $rootSite.webUrl)) {
@@ -2120,7 +2205,6 @@ else {
         Write-Verbose "No se pudo obtener sitio raiz: $($_.Exception.Message)"
     }
 
-    # 2. Endpoint getAllSites
     try {
         $sitesAll = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/getAllSites"
         if ($sitesAll) {
@@ -2130,7 +2214,6 @@ else {
         Write-Verbose "getAllSites no disponible: $($_.Exception.Message)"
     }
 
-    # 3. Busqueda global wildcard
     try {
         $wildcardRes = Invoke-GraphPaginatedRequest -Uri "v1.0/sites?search=*&`$top=999"
         if ($wildcardRes) {
@@ -2140,7 +2223,6 @@ else {
         Write-Verbose "Busqueda wildcard de sitios no permitida: $($_.Exception.Message)"
     }
 
-    # 4. Busqueda alfabetica y por terminos frecuentes
     $searchTerms = 97..122 | ForEach-Object { [char]$_ }
     $searchTerms += 0..9 | ForEach-Object { [string]$_ }
     $searchTerms += @("site", "portal", "team", "sharepoint", "general", "prueba", "test", "doc")
@@ -2156,7 +2238,6 @@ else {
         }
     }
 
-    # 5. Descubrir sitios asociados a grupos de M365 y Teams
     try {
         $m365Groups = Invoke-GraphPaginatedRequest -Uri "v1.0/groups?`$top=999&`$select=id,displayName,mailNickname,resourceProvisioningOptions"
         foreach ($grp in $m365Groups) {
@@ -2178,7 +2259,6 @@ else {
         Write-Verbose "No se pudieron listar grupos de M365: $($_.Exception.Message)"
     }
 
-    # 6. Eliminar duplicados
     $allSitesMap = @{}
     $uniqueSites = [System.Collections.Generic.List[PSObject]]::new()
     foreach ($s in $allSitesRaw) {
@@ -2191,7 +2271,6 @@ else {
         }
     }
 
-    # 7. Filtrar sitios de sistema y excluidos
     $validSites = [System.Collections.Generic.List[PSObject]]::new()
     foreach ($s in $uniqueSites) {
         $sUrl = if ($s.webUrl) { $s.webUrl } else { $s.WebUrl }
@@ -2311,19 +2390,67 @@ if ($selectedGeneralSites.Count -eq 0) {
     return
 }
 
-# -------------------------------------------------------------------------
-# PASO 3: Auditoria de PreservationHoldLibrary, Papelera y Versiones
-# -------------------------------------------------------------------------
-Write-StepHeader -StepNumber 3 -TotalSteps 5 -Title "Auditoría de PreservationHoldLibrary, papelera e historial de versiones"
+Write-StepHeader -StepNumber 3 -TotalSteps 5 -Title "Auditoria de almacenamiento"
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-# Estructuras de datos unificadas
 $allUnifiedFiles = [System.Collections.Generic.List[PSCustomObject]]::new()
 $siteSummaries = [System.Collections.Generic.List[PSCustomObject]]::new()
 $folderSummaries = [System.Collections.Generic.List[PSCustomObject]]::new()
 $libraryVersionSummaries = [System.Collections.Generic.List[PSCustomObject]]::new()
 $failedSites = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+$checkpointCleanHost = ($tenantHostName -replace '[:\\/*?"<>|]', '_')
+$checkpointDir = if ($OutputDirectory -and (Test-Path $OutputDirectory)) { $OutputDirectory } else { [System.IO.Path]::GetTempPath() }
+$checkpointPath = Join-Path -Path $checkpointDir -ChildPath "Checkpoint_PreservationHold_${checkpointCleanHost}.clixml"
+$processedSiteKeys = @{}
+
+if (Test-Path $checkpointPath) {
+    Write-Host ""
+    Write-Host "  [i] Se detecto un archivo de checkpoint de una ejecucion previa:" -ForegroundColor Yellow
+    Write-Host "      $checkpointPath" -ForegroundColor DarkGray
+    
+    $resumeAns = "S"
+    try {
+        if ([Environment]::UserInteractive -and $Host.UI.RawUI) {
+            $resumeAns = Read-Host "  ¿Desea reanudar desde el ultimo sitio procesado? [S/N] (Por defecto: S)"
+        }
+    } catch {
+        $resumeAns = "S"
+    }
+
+    if ($resumeAns -ne "N" -and $resumeAns -ne "n") {
+        try {
+            $savedCheckpoint = Import-Clixml -Path $checkpointPath -ErrorAction Stop
+            if ($savedCheckpoint) {
+                if ($savedCheckpoint.allUnifiedFiles) { foreach ($item in $savedCheckpoint.allUnifiedFiles) { $allUnifiedFiles.Add($item) } }
+                if ($savedCheckpoint.siteSummaries) { 
+                    foreach ($item in $savedCheckpoint.siteSummaries) { 
+                        $siteSummaries.Add($item)
+                        if ($item.SiteUrl) { $processedSiteKeys[$item.SiteUrl.Trim().ToLower()] = $true }
+                        if ($item.SiteTitle) { $processedSiteKeys[$item.SiteTitle.Trim().ToLower()] = $true }
+                    } 
+                }
+                if ($savedCheckpoint.folderSummaries) { foreach ($item in $savedCheckpoint.folderSummaries) { $folderSummaries.Add($item) } }
+                if ($savedCheckpoint.libraryVersionSummaries) { foreach ($item in $savedCheckpoint.libraryVersionSummaries) { $libraryVersionSummaries.Add($item) } }
+                if ($savedCheckpoint.failedSites) { 
+                    foreach ($item in $savedCheckpoint.failedSites) { 
+                        $failedSites.Add($item)
+                        if ($item.SiteUrl) { $processedSiteKeys[$item.SiteUrl.Trim().ToLower()] = $true }
+                        if ($item.SiteTitle) { $processedSiteKeys[$item.SiteTitle.Trim().ToLower()] = $true }
+                    } 
+                }
+                $totalLoadedSites = $siteSummaries.Count + $failedSites.Count
+                Write-StatusMsg -Message "Progreso restaurado: $totalLoadedSites sitios previamente analizados se conservan." -Status "SUCCESS"
+            }
+        } catch {
+            Write-StatusMsg -Message "No se pudo leer el archivo de checkpoint ($($_.Exception.Message)). Se iniciará desde el principio." -Status "WARN"
+        }
+    } else {
+        Remove-Item -Path $checkpointPath -Force -ErrorAction SilentlyContinue
+        Write-StatusMsg -Message "Checkpoint anterior descartado por el usuario. Iniciando desde cero." -Status "INFO"
+    }
+}
 
 $currentSiteIndex = 0
 $totalSitesToProcess = $selectedGeneralSites.Count
@@ -2333,6 +2460,14 @@ foreach ($siteObj in $selectedGeneralSites) {
     $siteId = $siteObj.id
     $siteTitle = if ($siteObj.displayName) { $siteObj.displayName } elseif ($siteObj.name) { $siteObj.name } else { "Sitio" }
     $siteWebUrl = if ($siteObj.webUrl) { $siteObj.webUrl } else { "" }
+
+    # Omitir sitio si ya se proceso en la sesion anterior
+    $urlKey = if ($siteWebUrl) { $siteWebUrl.Trim().ToLower() } else { "" }
+    $titleKey = if ($siteTitle) { $siteTitle.Trim().ToLower() } else { "" }
+    if (($urlKey -and $processedSiteKeys.ContainsKey($urlKey)) -or ($titleKey -and $processedSiteKeys.ContainsKey($titleKey))) {
+        Write-Host ("  [{0}/{1}] [YA PROCESADO EN SESION ANTERIOR] Omitiendo: {2}" -f $currentSiteIndex, $totalSitesToProcess, $siteTitle) -ForegroundColor DarkGray
+        continue
+    }
 
     Write-Host ""
     Write-Host ("  [{0}/{1}] Sitio: {2}" -f $currentSiteIndex, $totalSitesToProcess, $siteTitle) -ForegroundColor White
@@ -2356,9 +2491,7 @@ foreach ($siteObj in $selectedGeneralSites) {
         $oldestDate = [datetime]::MaxValue
         $newestDate = [datetime]::MinValue
 
-        # =========================================================================
-        # A. Auditoria de PreservationHoldLibrary (Purview / eDiscovery / Litigios)
-        # =========================================================================
+        # PreservationHoldLibrary (Purview)
         try {
             $drivesRes = Invoke-GraphPaginatedRequest -Uri "v1.0/sites/$siteId/drives"
             $preservationDrives = [System.Collections.Generic.List[PSObject]]::new()
@@ -2502,9 +2635,7 @@ foreach ($siteObj in $selectedGeneralSites) {
             Write-Verbose "Error auditando PreservationHold en '$siteTitle': $($_.Exception.Message)"
         }
 
-        # =========================================================================
-        # B. Auditoria de Papelera de Reciclaje (Recycle Bin - 1ª y 2ª Etapa)
-        # =========================================================================
+        # Papelera de reciclaje
         try {
             Write-StatusMsg -Message "Auditando elementos en papelera de reciclaje..." -Status "WORKING"
             $recycleItems = Get-SiteRecycleBinItems -SiteId $siteId -SiteWebUrl $siteWebUrl -TenantHost $tenantHostName -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret
@@ -2604,9 +2735,7 @@ foreach ($siteObj in $selectedGeneralSites) {
         }
         $siteRecycleBinCount = ($allUnifiedFiles | Where-Object { $_.SourceType -eq "Papelera de reciclaje" -and $_.SiteTitle -eq $siteTitle }).Count
 
-        # =========================================================================
-        # C. Historial de Versiones de Documentos
-        # =========================================================================
+        # Historial de versiones
         if ($AuditVersionHistory) {
             try {
                 Write-StatusMsg -Message "Auditando historial de versiones de documentos..." -Status "WORKING"
@@ -2681,9 +2810,7 @@ foreach ($siteObj in $selectedGeneralSites) {
             }
         }
 
-        # =========================================================================
-        # D. Configuracion de limites de versiones por biblioteca
-        # =========================================================================
+        # Limites de versiones por biblioteca
         $siteLibVersions = Get-SiteLibraryVersionSettings -SiteId $siteId -SiteWebUrl $siteWebUrl -TenantHost $tenantHostName -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret
         $siteVersionLimitDisplay = ""
         if ($siteLibVersions -and $siteLibVersions.Count -gt 0) {
@@ -2761,7 +2888,6 @@ foreach ($siteObj in $selectedGeneralSites) {
             AuditDate                      = (Get-SpainDate).ToString("yyyy-MM-dd HH:mm:ss")
         })
     } catch {
-        # Control de excepciones por sitio individual
         $errSiteMsg = $_.Exception.Message
         Write-StatusMsg -Message "Incidencia en sitio '$siteTitle': $errSiteMsg" -Status "FAIL"
         $failedSites.Add([PSCustomObject]@{
@@ -2771,15 +2897,24 @@ foreach ($siteObj in $selectedGeneralSites) {
             Timestamp    = (Get-SpainDate).ToString("yyyy-MM-dd HH:mm:ss")
         })
     }
+
+    try {
+        $checkpointData = @{
+            allUnifiedFiles         = $allUnifiedFiles
+            siteSummaries           = $siteSummaries
+            folderSummaries         = $folderSummaries
+            libraryVersionSummaries = $libraryVersionSummaries
+            failedSites             = $failedSites
+            Timestamp               = (Get-SpainDate).ToString("yyyy-MM-dd HH:mm:ss")
+        }
+        Export-Clixml -Path $checkpointPath -InputObject $checkpointData -Force -ErrorAction SilentlyContinue
+    } catch { }
 }
 
 $stopwatch.Stop()
 $elapsedTime = "{0:hh\:mm\:ss}" -f $stopwatch.Elapsed
 
-# -------------------------------------------------------------------------
-# PASO 4: Generacion del Informe HTML Interactivo Corporativo
-# -------------------------------------------------------------------------
-Write-StepHeader -StepNumber 4 -TotalSteps 5 -Title "Generación del informe HTML interactivo corporativo"
+Write-StepHeader -StepNumber 4 -TotalSteps 5 -Title "Generacion de informe HTML"
 
 # Determinar nombre y ruta del reporte
 $auditedSiteFilterName = if ($selectedGeneralSites -and $selectedGeneralSites.Count -eq 1) {
@@ -2829,10 +2964,7 @@ try {
     Write-StatusMsg -Message "Error al generar informe HTML: $($_.Exception.Message)" -Status "FAIL"
 }
 
-# -------------------------------------------------------------------------
-# PASO 5: Exportacion CSV y Resumen Final
-# -------------------------------------------------------------------------
-Write-StepHeader -StepNumber 5 -TotalSteps 5 -Title "Exportación de datos y resumen final"
+Write-StepHeader -StepNumber 5 -TotalSteps 5 -Title "Exportacion de datos y resumen final"
 
 if ($ExportCsv -and $allUnifiedFiles.Count -gt 0) {
     try {
@@ -2854,7 +2986,6 @@ if ($ExportCsv -and $allUnifiedFiles.Count -gt 0) {
     }
 }
 
-# Totales globales consolidados
 $grandPresTotal = 0
 $grandRecTotal = 0
 $grandVerTotal = 0
@@ -2909,3 +3040,8 @@ if ($failedSites.Count -gt 0) {
 }
 
 Write-StatusMsg -Message "Proceso de auditoría finalizado con éxito." -Status "SUCCESS"
+
+# Limpieza del archivo temporal de checkpoint al completar la auditoria satisfactoriamente
+if ($checkpointPath -and (Test-Path $checkpointPath)) {
+    Remove-Item -Path $checkpointPath -Force -ErrorAction SilentlyContinue
+}
