@@ -29,9 +29,11 @@ Scripts-Vault/
 │   ├── Pruebas-Seeding - Generador_Datos_SharePoint.ps1
 │   ├── Pruebas-Seeding - Generador_Permisos_Unicos_SharePoint.ps1
 │   └── Pruebas-Seeding - Generador_Usuarios_Teams.ps1
+├── Microsoft 365 - Exchange - Gestion_Listas_Distribucion.ps1
 ├── Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1
 ├── Microsoft 365 - Exchange - Recopilacion_Buzones.ps1
 ├── Microsoft 365 - SharePoint - Auditoria_Permisos.ps1
+├── Microsoft 365 - SharePoint - Auditoria_PreservationHoldLibrary.ps1
 ├── Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1
 ├── Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1
 ├── Microsoft Intune - Auditoria_Asignaciones_Grupo.ps1
@@ -46,15 +48,16 @@ Scripts-Vault/
 
 ### 1. Administración de Microsoft 365 e Intune
 
-Scripts en PowerShell para la auditoría, mantenimiento y gestión automatizada de entornos cloud en Microsoft 365 y Microsoft Intune.
+Scripts en PowerShell para la auditoría, mantenimiento y gestión automatizada de entornos cloud en Microsoft 365, Entra ID y Microsoft Intune.
 
-| Archivo | Plataforma | Descripción |
+| Archivo | Plataforma / Módulo | Descripción |
 | :--- | :--- | :--- |
-| `Microsoft 365 - SharePoint - Auditoria_Permisos.ps1` | PowerShell / Graph API | Audita permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos). Permite selección múltiple, importación por CSV (`-CsvPath`) y genera reportes en HTML interactivo. |
-| `Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1` | PowerShell / Graph API | Audita y elimina versiones obsoletas en bibliotecas de SharePoint Online. Calcula el espacio liberado (MB/GB) y genera informes en HTML. |
-| `Microsoft 365 - Exchange - Recopilacion_Buzones.ps1` | PowerShell / ExchangeOnline | Recopila y exporta información detallada sobre los buzones de Exchange Online presentándola mediante una interfaz interactiva (`Out-GridView`). |
 | `Microsoft 365 - Exchange - Gestion_Listas_Distribucion.ps1` | PowerShell / ExchangeOnline | Automatiza altas, bajas, sustitución/reemplazo global y auditoría de miembros en Listas de Distribución y Grupos habilitados para correo con soporte interactivo y por parámetros. |
 | `Microsoft 365 - Exchange - Limpieza_Correos_Destinatario.ps1` | PowerShell / Graph API | Identifica y elimina correos antiguos (>6 meses) por destinatario en carpetas seleccionadas (Enviados, Entrada, Spam, etc.), calculando el espacio liberado. |
+| `Microsoft 365 - Exchange - Recopilacion_Buzones.ps1` | PowerShell / ExchangeOnline | Recopila y exporta información detallada sobre los buzones de Exchange Online presentándola mediante una interfaz interactiva (`Out-GridView`). |
+| `Microsoft 365 - SharePoint - Auditoria_Permisos.ps1` | PowerShell / Graph API | Audita permisos en SharePoint Online (sitios, subsitios y carpetas con permisos únicos). Permite selección múltiple, importación por CSV (`-CsvPath`) y genera reportes en HTML interactivo. |
+| `Microsoft 365 - SharePoint - Auditoria_PreservationHoldLibrary.ps1` | PowerShell / Graph REST | Audita y cuantifica el almacenamiento no productivo en SharePoint Online: biblioteca `PreservationHoldLibrary` (retenciones de Purview, eDiscovery y Litigation Hold), Papeleras de Reciclaje (1ª y 2ª etapa) e Historial de Versiones. Soporta App Registration desatendida (Client Secret o Certificado) o interactiva, control de throttling y genera informe interactivo Fluent UI con exportación CSV. |
+| `Microsoft 365 - SharePoint - Limpieza_Historial_Versiones.ps1` | PowerShell / Graph API | Audita y elimina versiones obsoletas en bibliotecas de SharePoint Online. Calcula el espacio liberado (MB/GB) y genera informes en HTML. |
 | `Microsoft 365 - Teams - Eliminacion_Masiva_Usuarios.ps1` | PowerShell / Teams API | Facilita la desvinculación masiva de miembros o invitados en equipos de Microsoft Teams mediante filtrado por dominio. |
 | `Microsoft Intune - Auditoria_Asignaciones_Grupo.ps1` | PowerShell / Graph API | Audita las políticas, perfiles de configuración, aplicaciones, scripts y remediaciones asignadas a un grupo específico de Entra ID / Intune. |
 | `Microsoft Intune - Registro_Dispositivo_Autopilot.ps1` | PowerShell | Registra el equipo local en Microsoft Autopilot mediante `Get-WindowsAutopilotInfo` y programa el apagado automático del sistema. |
@@ -129,9 +132,24 @@ Recreaciones de juegos clásicos para consola y entorno gráfico.
 
 ## Ejemplos de Uso
 
+### Auditar almacenamiento no productivo y PreservationHoldLibrary en SharePoint
+```powershell
+# Ejecución interactiva para un sitio específico:
+.\Microsoft 365 - SharePoint - Auditoria_PreservationHoldLibrary.ps1 -SiteUrl "https://contoso.sharepoint.com/sites/Finanzas"
+
+# Ejecución desatendida mediante App Registration de Entra ID:
+.\Microsoft 365 - SharePoint - Auditoria_PreservationHoldLibrary.ps1 -TenantId "<TENANT-ID>" -ClientId "<CLIENT-ID>" -ClientSecret "<CLIENT-SECRET>"
+```
+
 ### Ejecutar auditoría de permisos en SharePoint
 ```powershell
 .\Microsoft 365 - SharePoint - Auditoria_Permisos.ps1 -SiteUrl "https://contoso.sharepoint.com/sites/IT"
+```
+
+### Gestionar miembros en Listas de Distribución de Exchange Online
+```powershell
+# Reemplazar un usuario por otro en todas las listas de distribución:
+.\Microsoft 365 - Exchange - Gestion_Listas_Distribucion.ps1 -Action Replace -TargetUser "saliente@contoso.com" -NewUser "entrante@contoso.com"
 ```
 
 ### Iniciar un socket de escucha UDP en PowerShell
